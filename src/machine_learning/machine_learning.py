@@ -6,7 +6,7 @@ from src.machine_learning.model_trainer import ModelTrainer
 
 class MachineLearning:
     
-    def __init__(self, settings, directories):
+    def __init__(self, directories):
              
         model = ModelTrainer(directories["features_full_imputed"], directories["features_cons_shape"], directories["ml"], directories["model_data"])
         
