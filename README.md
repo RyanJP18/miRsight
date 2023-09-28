@@ -1,5 +1,5 @@
 # miRscope
-Command line tool used to generate predictions for mirsight.info
+Command line tool used to generate predictions for [miRsight](http://mirsight.info)
 
 # Dependencies 
 Note: will be simplified in a future release
