@@ -22,5 +22,5 @@ Note: will be simplified in a future release
 ## Setup
 - Install dependencies
 - Unzip "unzip_me.7z" to use pre-compiled SHAPE-seq and conservation data
-- Ensure the miRscope/shape and miRscope/output/02-conservation folders are populated as a result
+- Ensure the miRsight/shape and miRsight/output/02-conservation folders are populated as a result
 - Run `python main.py`
