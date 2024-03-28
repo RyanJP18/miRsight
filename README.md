@@ -1,4 +1,4 @@
-# miRscope
+# miRsight
 Command line tool used to generate predictions for [miRsight](http://mirsight.info)
 
 ## Dependencies 
