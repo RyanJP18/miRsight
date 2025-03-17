@@ -1,5 +1,6 @@
 import json
 import subprocess
+import tarfile
 from pathlib import Path
 import pandas as pd
 from src.machine_learning.machine_learning import MachineLearning
@@ -39,87 +40,100 @@ def main():
     print("Done.\n")
 
 
+    if settings["use_precompiled_conservation"]:
+        print("Readying precompiled conservation data...")
+        with tarfile.open("precompiled_conservation_data.tar.gz", "r:gz") as tar:
+            tar.extractall(path=".")
+        print("Done.\n")
+
+    if settings["use_precompiled_shape"]:
+        print("Readying precompiled shape data...")
+        with tarfile.open("precompiled_shape_data.tar.gz", "r:gz") as tar:
+            tar.extractall(path=".")
+        print("Done.\n")
+
+
     print("Attempting to download data for annotation...")
-    exit_code = subprocess.call(["sh", "./src/download_annotation_data.sh", 
-        settings["use_caching"], directories["preload_data"], settings["ensembl_release"], mane_version], shell = True)
-    if (exit_code > 0):
+    process = subprocess.run(["sh", "./src/download_annotation_data.sh", 
+        settings["use_caching"], directories["preload_data"], settings["ensembl_release"], mane_version], shell = False)
+    if (process.returncode != 0):
         print("An error occurred while downloading annotation data.")
         return()
     print("Done.\n")
 
 
     print("Parsing annotation data...")
-    exit_code = subprocess.call("Rscript src/parse_annotation_data.r " + config_path, shell = True)
-    if (exit_code > 0):
+    process = subprocess.run(["Rscript", "src/parse_annotation_data.r", config_path], shell = False)
+    if (process.returncode != 0):
         print("An error occurred while parsing annotation data.")
         return()
     print("Done.\n")
 
 
     print("Extracting 3' UTR and CDS sequences...")
-    exit_code = subprocess.call("Rscript src/extract_sequences.r " + config_path, shell = True)
-    if (exit_code > 0):
+    process = subprocess.run(["Rscript", "src/extract_sequences.r", config_path], shell = False)
+    if (process.returncode != 0):
         print("An error occurred while extracting sequences.")
         return()
     print("Done.\n")
 
 
     print("Generating conservation scores... This will take a long time if there is no cache.")
-    exit_code = subprocess.call("Rscript src/generate_conservation_scores.r " + config_path, shell = True)
-    if (exit_code > 0):
+    process = subprocess.run(["Rscript", "src/generate_conservation_scores.r", config_path], shell = False)
+    if (process.returncode != 0):
         print("An error occurred while generating conservation scores.")
         return()
     print("Done.\n")
 
 
     print("Locating binding sites in each experiment...")
-    exit_code = subprocess.call("Rscript src/locate_binding_sites.r " + config_path, shell = True)
-    if (exit_code > 0):
+    process = subprocess.run(["Rscript", "src/locate_binding_sites.r", config_path], shell = False)
+    if (process.returncode != 0):
         print("An error occurred while locating binding sites.")
         return()
     print("Done.\n")
 
 
     print("Extracting folding windows for each experiment...")
-    exit_code = subprocess.call("Rscript src/extract_windows.r " + config_path, shell = True)
-    if (exit_code > 0):
+    process = subprocess.run(["Rscript", "src/extract_windows.r", config_path], shell = False)
+    if (process.returncode != 0):
         print("An error occurred while extracting folding windows.")
         return()
     print("Done.\n")
 
 
-    print("Folding sequences using ViennaRNA...")
-    RNAFolder(settings, directories)
-    print("Done.\n")
+    # print("Folding sequences using ViennaRNA...")
+    # RNAFolder(settings, directories)
+    # print("Done.\n")
 
 
-    print("Extracting features for each experiment...")
-    exit_code = subprocess.call("Rscript src/extract_features.r " + config_path, shell = True)
-    if (exit_code > 0):
-        print("An error occurred while extracting features.")
-        return()
-    print("Done.\n")
+    # print("Extracting features for each experiment...")
+    # exit_code = subprocess.call("Rscript src/extract_features.r " + config_path, shell = True)
+    # if (exit_code > 0):
+    #     print("An error occurred while extracting features.")
+    #     return()
+    # print("Done.\n")
 
 
-    print("Parsing conservation scores for each experiment...")
-    ConservationParser(settings, directories)
-    print("Done.\n")
+    # print("Parsing conservation scores for each experiment...")
+    # ConservationParser(settings, directories)
+    # print("Done.\n")
 
 
-    print("Parsing shape scores for each experiment...")
-    ShapeParser(settings, directories)
-    print("Done.\n")
-
-    
-    print("Imputing missing values for each experiment...")
-    exit_code = subprocess.call("Rscript src/impute_missing_values.r " + config_path, shell = True)
-    if (exit_code > 0):
-        print("An error occurred while imputing values.")
-        return()
-    print("Done.\n")
+    # print("Parsing shape scores for each experiment...")
+    # ShapeParser(settings, directories)
+    # print("Done.\n")
 
     
-    MachineLearning(directories)
+    # print("Imputing missing values for each experiment...")
+    # exit_code = subprocess.call("Rscript src/impute_missing_values.r " + config_path, shell = True)
+    # if (exit_code > 0):
+    #     print("An error occurred while imputing values.")
+    #     return()
+    # print("Done.\n")
+
+    
+    # MachineLearning(directories)
 
 
 # Entry point

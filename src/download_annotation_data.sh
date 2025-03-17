@@ -5,7 +5,8 @@ if [ $1 ] && [ -f "$2/mirnas.fa" ]; then
     echo "Loaded $mature_file from cache."
 else 
     echo "Downloading $mature_file.gz from miRBase..."
-    curl "https://www.mirbase.org/ftp/CURRENT/$mature_file.gz" | gunzip -c > "$2/mirnas.fa"
+    # curl "https://www.mirbase.org/ftp/CURRENT/$mature_file.gz" | gunzip -c > "$2/mirnas.fa"
+    curl "https://www.mirbase.org/download/$mature_file" > "$2/mirnas.fa"
 fi
 
 gtf_file=Homo_sapiens.GRCh38.$3.chr.gtf
