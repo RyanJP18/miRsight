@@ -130,18 +130,32 @@ annotations <- read.table(file.path(directories$annotations, "annotations.tsv"),
 mane <- read.table(file.path(directories$annotations, "mane.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 utrs <- read.table(file.path(directories$annotations, "utr_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 cds <- read.table(file.path(directories$annotations, "cds_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-# apply chromosome filter and also ensure we have annotations for the transcripts
-annotations <- annotations[annotations$chromosome_name %in% strsplit(settings$chromosome_filter, ",")[[1]], ]
+
+# apply filters
+if (settings$chromosome_filter != "") {
+    annotations <- annotations[annotations$chromosome_name %in% strsplit(settings$chromosome_filter, ",")[[1]], ]
+}
+if (settings$ensembl_transcript_id_filter != "") {
+    annotations <- annotations[sub("\\..*", "", annotations$ensembl_transcript_id_version) %in% strsplit(settings$ensembl_transcript_id_filter, ",")[[1]], ]
+}
+if (settings$ensembl_gene_id_filter != "") {
+    annotations <- annotations[annotations$ensembl_gene_id %in% strsplit(settings$ensembl_gene_id_filter, ",")[[1]], ]
+}
+if (settings$external_gene_id_filter != "") {
+    annotations <- annotations[annotations$external_gene_id %in% strsplit(settings$external_gene_id_filter, ",")[[1]], ]
+}
+
+# filter to only transcripts where we have utr sequence annotations
 annotations <- annotations[annotations$ensembl_transcript_id_version %in% mane$ensembl_transcript_id_version, ]
 utrs <- utrs[utrs$ensembl_transcript_id_version %in% annotations$ensembl_transcript_id_version, ]
 cds <- cds[cds$ensembl_transcript_id_version %in% annotations$ensembl_transcript_id_version, ]
-# filter to only transcripts where we have utr sequence annotations
 utrs <- utrs[utrs$X3utr != "Sequence unavailable", ]
 cds <- cds[cds$ensembl_transcript_id_version %in% utrs$ensembl_transcript_id_version, ]
 
-
-
 mirna_sequences <- read.table(file.path(directories$annotations, "mirna_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+if (settings$mirna_id_filter != "") {
+    mirna_sequences <- mirna_sequences[mirna_sequences$mirna_id %in% strsplit(settings$mirna_id_filter, ",")[[1]], ]
+}
 
 if (file.exists(file.path(directories$bindings, "target-sites.tsv"))) {
     target_sites <- read.table(file.path(directories$bindings, "target-sites.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)

@@ -8,6 +8,10 @@
         "use_caching": "True",
 
 	    "chromosome_filter": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y",
+        "ensembl_transcript_id_filter": "",
+        "ensembl_gene_id_filter": "",
+        "external_gene_id_filter": "",
+        "mirna_id_filter": "",
 
         "ignore_second_struct_bind": "True",
         "folding_window_size": "30",
