@@ -157,12 +157,8 @@ if (settings$mirna_id_filter != "") {
     mirna_sequences <- mirna_sequences[mirna_sequences$mirna_id %in% strsplit(settings$mirna_id_filter, ",")[[1]], ]
 }
 
-if (file.exists(file.path(directories$bindings, "target-sites.tsv"))) {
-    target_sites <- read.table(file.path(directories$bindings, "target-sites.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-} else {
-    target_sites <- create_new_frame(c("mirna_id", "site_6mer", "target_6mer", "site_6off", "target_6off", "site_7mer_a1", "target_7mer_a1", "site_7mer_m8",
-        "target_7mer_m8", "site_8mer", "target_8mer"), NULL, nrow(mirna_sequences))
-}
+target_sites <- create_new_frame(c("mirna_id", "site_6mer", "target_6mer", "site_6off", "target_6off", "site_7mer_a1", "target_7mer_a1", "site_7mer_m8",
+    "target_7mer_m8", "site_8mer", "target_8mer"), NULL, nrow(mirna_sequences))
 
 for (i in seq_len(nrow(mirna_sequences))) {
     mirna <- mirna_sequences[i, ]
@@ -190,20 +186,27 @@ for (i in seq_len(nrow(mirna_sequences))) {
 
         # locate the binding sites and store them
         binding_sites <- locate_binding_sites(utrs, cds, target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer)
-        write.table(
-            binding_sites[order(binding_sites$ensembl_transcript_id_version), ],
-            file = file.path(directories$bindings_raw, paste0(mirna_id, ".tsv")), quote = FALSE, sep = "\t",
-            row.names = FALSE)
 
-        expanded_binding_sites <- expand_binding_sites(binding_sites, utrs, target_6mer) # handle abundance as separate sites
-        write.table(
-            expanded_binding_sites[order(expanded_binding_sites$ensembl_transcript_id_version), ],
-            file = file.path(directories$bindings, paste0(mirna_id, ".tsv")), quote = FALSE, sep = "\t",
-            row.names = FALSE)
+        # handle abundance as separate sites
+        expanded_binding_sites <- expand_binding_sites(binding_sites, utrs, target_6mer) 
 
-        # log binding site and target information for this transfection
-        target_sites[i, ] <- c(gsub("*.tsv", "", mirna_id), site_6mer, target_6mer, site_6off, target_6off, site_7mer_a1, target_7mer_a1, 
-            site_7mer_m8, target_7mer_m8, site_8mer, target_8mer)
+        # only log binding sites for this transfection if there was at least one 6mer or better
+        if (nrow(expanded_binding_sites) > 0) {
+            write.table(
+                binding_sites[order(binding_sites$ensembl_transcript_id_version), ],
+                file = file.path(directories$bindings_raw, paste0(mirna_id, ".tsv")), quote = FALSE, sep = "\t",
+                row.names = FALSE)
+
+            write.table(
+                expanded_binding_sites[order(expanded_binding_sites$ensembl_transcript_id_version), ],
+                file = file.path(directories$bindings, paste0(mirna_id, ".tsv")), quote = FALSE, sep = "\t",
+                row.names = FALSE)
+
+            # log binding site and target information for this transfection
+            target_sites[i, ] <- c(gsub("*.tsv", "", mirna_id), site_6mer, target_6mer, site_6off, target_6off, site_7mer_a1, target_7mer_a1, 
+                site_7mer_m8, target_7mer_m8, site_8mer, target_8mer)
+        }
+
 
         cat(" Done.\n")
     } else {

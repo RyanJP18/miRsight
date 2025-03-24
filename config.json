@@ -30,11 +30,10 @@
         "folds": "output/05-folds",
         "features": "output/06-features",
         "features_conservation": "output/07-features-conservation",
-        "features_cons_shape": "output/08-features-cons-shape",
-        "features_full_imputed": "output/09-features-full-imputed",
-        "ml": "output/10-machine-learning",
-        
-        "experiment_infos": "output/00-preload-data/experiment-infos",
+        "parsed_shape": "output/08-parsed-shape",
+        "features_cons_shape": "output/09-features-cons-shape",
+        "features_full_imputed": "output/10-features-full-imputed",
+        "machine_learning": "output/11-target-predictions",
 
         "bindings_raw": "output/03-bindings/raw",
 

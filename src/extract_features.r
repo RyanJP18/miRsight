@@ -98,6 +98,7 @@ load_rnaplfolds <- function(experiment_name, folding_windows, seed_features) {
 
         rnaplfolds$rnaplfold_seed[i] <- rnaplfolds_raw[start_seed + seed_binding_count, seed_binding_count]
         rnaplfolds$rnaplfold_sup[i] <- rnaplfolds_raw[base_20, 12] # bases 09-20
+    }
 
     return(rnaplfolds)
 }
@@ -243,9 +244,9 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
     mirna_binds <- supplementary_pairs[[2]]
     mrna_binds <- supplementary_pairs[[3]]
 
-    if (mirna_binds == 0 && mrna_binds == 0) {
-        return(c(current_transcript_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-    }
+    # if (mirna_binds == 0 && mrna_binds == 0) {
+    #     return(c(current_transcript_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    # }
 
     perfect_pair_count <- 0
     wobble_pair_count <- 0
@@ -407,9 +408,12 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
     au_content_sup <- lengths(regmatches(au_window_sup, gregexpr("(A|U)", au_window_sup)))
 
     au_content_3 <- au_content_3 / nchar(au_window_lr)
-    au_content_sup <- au_content_sup / nchar(au_window_sup)
 
-
+    if (au_window_sup == "") {
+        au_content_sup <- "NA"
+    } else {
+        au_content_sup <- au_content_sup / nchar(au_window_sup)
+    }
 
     weights <- c(1/3, 1/4, 1/5, 1/6, 1/7, 1/8, 1/9, 1/10, 1/11, 1/12, 1/13, 1/14, 1/15, 1/16, 1/17, 1/18, 1/19, 1/20, 1/21, 1/22, 1/23, 1/24, 1/25, 1/26, 1/27, 1/28, 1/29, 1/30, 1/31, 1/32)
     dist_scalars <- weights / sum(weights)
@@ -417,9 +421,18 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
     au_content_5_weighted <- 0
     au_5_match_idx <- gregexpr("(A|U)", au_window_rl)[[1]]
     for (idx in au_5_match_idx) {
+        if (idx == -1) {
+            # handling for very short strings (only one base in the rl window)
+            if (au_window_rl == "A" || au_window_rl == "U") {
+                au_content_5_weighted <- 1/3
+            } else {
+                au_content_5_weighted <- 0
+            }
+            break
+        }
+
         au_content_5_weighted <- au_content_5_weighted + dist_scalars[idx]
     }
-    
     
     return(c(current_transcript_id, au_content_3, au_content_sup, au_content_5_weighted))
 }
@@ -445,6 +458,11 @@ for (i in seq_len(length(experiment_files))) {
     } else {
         expanded_binding_sites <- read.table(file.path(directories$bindings, experiment_filename), sep = "\t", header = TRUE)
 
+        if (nrow(expanded_binding_sites) == 0)
+        {
+            write.table(data.frame(), feature_path, sep = "\t", row.names = FALSE, col.names = TRUE) # no target sites, write an empty file
+            next
+        }
         
         rnafolds_lr_raw <- read.table(file.path(directories$folds_rnafold_lr, paste0(experiment_name, ".csv")), sep = ",", header = FALSE)
         rnafolds_lr <- do.call("cbind", split(rnafolds_lr_raw, rep(c(1, 2), length.out = nrow(rnafolds_lr_raw))))
@@ -500,7 +518,7 @@ for (i in seq_len(length(experiment_files))) {
 
         folding_windows <- read.table(file.path(directories$windows, experiment_filename), sep = "\t", header = TRUE)
         rnaplfolds <- load_rnaplfolds(experiment_name, folding_windows, seed_features)
-
+      
         combined_features <- cbind(
             single_base_features,
             seed_features[, -which(names(seed_features) == "ensembl_transcript_id_version")],
@@ -531,7 +549,7 @@ for (i in seq_len(length(experiment_files))) {
                 combined_features$dist_closest_utr_end[j] <- binding_pos
             }
         }
-
+        
         # for cases of abundance, track which is likely the strongest candidate (most seed bases paired > strongest mfe)
         combined_features$best_abundance <- FALSE
         best_abundance_idx <- -1

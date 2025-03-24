@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install general dependencies
 RUN apt-get update -y && apt-get install -y \
-    build-essential gfortran make \
+    build-essential gfortran make cmake \
     libcurl4-openssl-dev libxml2-dev libssl-dev \
     curl \
     libopenblas-dev liblapack-dev \
@@ -16,9 +16,6 @@ RUN apt-get update -y && apt-get install -y \
 
 # OpenBLAS makes some of the python and R computation more efficient (particularly with ML)
 ENV OPENBLAS_NUM_THREADS=4 
-
-# TODO: download miRsight via github releases and extract it 
-# TODO: unzip the unzip_me file and place it in the correct folder
 
 # Install python 3.8 specifically
 RUN apt-get update -y && apt-get install -y \
@@ -45,6 +42,7 @@ ENV R_LIBS_USER=/rlib
 RUN R -e "install.packages(c('jsonlite', 'stringr', 'dplyr', 'mice'), lib='/rlib')"
 RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
     R -e "BiocManager::install(c('ensembldb', 'AnnotationHub', 'BSgenome.Hsapiens.NCBI.GRCh38'), lib='/rlib')"
+
 
 # TODO: is this still needed?
 # RUN R -e 'install.packages(c("purrr", "cpp11", "XML", "tidyr", "RSQLite", "dbplyr"), lib="/rlib")'

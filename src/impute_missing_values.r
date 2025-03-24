@@ -4,7 +4,7 @@ config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
 
-library(mice)
+suppressMessages(library(mice))
 
 experiment_files <- dir(directories$features_cons_shape, pattern = ".tsv")
 
