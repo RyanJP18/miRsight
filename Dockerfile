@@ -43,11 +43,6 @@ RUN R -e "install.packages(c('jsonlite', 'stringr', 'dplyr', 'mice'), lib='/rlib
 RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
     R -e "BiocManager::install(c('ensembldb', 'AnnotationHub', 'BSgenome.Hsapiens.NCBI.GRCh38'), lib='/rlib')"
 
-
-# TODO: is this still needed?
-# RUN R -e 'install.packages(c("purrr", "cpp11", "XML", "tidyr", "RSQLite", "dbplyr"), lib="/rlib")'
-
-
 # TODO: is this still going to be used?
 # RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
 # R -e "BiocManager::install(c('GenomicScores', 'phyloP100way.UCSC.hg38'), lib='/rlib')"
@@ -63,6 +58,8 @@ WORKDIR /ViennaRNA-2.5.0
 RUN ./configure
 RUN make
 RUN make install
+
+RUN R -e "install.packages(c('stringi'), lib='/rlib')"
 
 # Copy over app code
 WORKDIR /app

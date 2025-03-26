@@ -5,6 +5,7 @@ settings <- config$settings
 directories <- config$directories
 
 suppressMessages(library(dplyr))
+suppressMessages(library(parallel))
 
 
 
@@ -100,6 +101,33 @@ extract_folding_windows <- function(expanded_binding_sites, utrs, mirna_sequence
     return(folding_windows)
 }
 
+process_mirna <- function(i) {
+
+    if (as.logical(settings$use_caching) && file.exists(file.path(directories$windows, binding_site_files[i]))) {
+        message(paste0("Window extraction ", i, "/", n, " - loaded from cache"))
+    } else {
+        start_time <- Sys.time()
+
+        binding_site_filename <- binding_site_files[i]
+        mirna_id <- mirna_ids[i]
+        window_path <- file.path(directories$windows, binding_site_files[i])
+        
+        raw_binding_sites <- read.table(file.path(directories$bindings_raw, binding_site_filename), sep = "\t", header = TRUE)
+        expanded_binding_sites <- read.table(file.path(directories$bindings, binding_site_filename), sep = "\t", header = TRUE)
+
+        utrs <- utrs[rep(1:nrow(raw_binding_sites), raw_binding_sites$site_abundance_6mer), ]
+
+        mirna_sequence <- mirna_sequences[mirna_sequences$mirna_id == mirna_id, ]$mirna_sequence
+
+        folding_windows <- extract_folding_windows(expanded_binding_sites, utrs, mirna_sequence)
+
+        write.table(folding_windows, window_path, quote = FALSE, sep = "\t", row.names = FALSE)
+
+        store_folding_windows(folding_windows, gsub("*.tsv", "", binding_site_filename))
+
+        message(paste0("Window extraction ", i, "/", n, " - done.", "-- Elapsed-- ", Sys.time() - start_time))
+    }
+}
 
 
 # --- ENTRY POINT ---
@@ -109,7 +137,6 @@ if (settings$mirna_id_filter != "") {
     mirna_sequences <- mirna_sequences[mirna_sequences$mirna_id %in% strsplit(settings$mirna_id_filter, ",")[[1]], ]
 }
 
-
 annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 mane <- read.table(file.path(directories$annotations, "mane.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 utrs <- read.table(file.path(directories$annotations, "utr_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
@@ -118,15 +145,15 @@ utrs <- read.table(file.path(directories$annotations, "utr_sequences.tsv"), sep 
 if (settings$chromosome_filter != "") {
     annotations <- annotations[annotations$chromosome_name %in% strsplit(settings$chromosome_filter, ",")[[1]], ]
 }
-if (settings$ensembl_transcript_id_filter != "") {
-    annotations <- annotations[sub("\\..*", "", annotations$ensembl_transcript_id_version) %in% strsplit(settings$ensembl_transcript_id_filter, ",")[[1]], ]
-}
-if (settings$ensembl_gene_id_filter != "") {
-    annotations <- annotations[annotations$ensembl_gene_id %in% strsplit(settings$ensembl_gene_id_filter, ",")[[1]], ]
-}
-if (settings$external_gene_id_filter != "") {
-    annotations <- annotations[annotations$external_gene_id %in% strsplit(settings$external_gene_id_filter, ",")[[1]], ]
-}
+# if (settings$ensembl_transcript_id_filter != "") {
+#     annotations <- annotations[sub("\\..*", "", annotations$ensembl_transcript_id_version) %in% strsplit(settings$ensembl_transcript_id_filter, ",")[[1]], ]
+# }
+# if (settings$ensembl_gene_id_filter != "") {
+#     annotations <- annotations[annotations$ensembl_gene_id %in% strsplit(settings$ensembl_gene_id_filter, ",")[[1]], ]
+# }
+# if (settings$external_gene_id_filter != "") {
+#     annotations <- annotations[annotations$external_gene_id %in% strsplit(settings$external_gene_id_filter, ",")[[1]], ]
+# }
 
 # filter to only transcripts where we have utr sequence annotations
 annotations <- annotations[annotations$ensembl_transcript_id_version %in% mane$ensembl_transcript_id_version, ]
@@ -138,32 +165,12 @@ folding_window_size <- as.numeric(settings$folding_window_size)
 rnaplfold_window_size <- as.numeric(settings$rnaplfold_window_size)
 half_rnapl_window_size <- rnaplfold_window_size * 0.5
 
-experiment_files <- dir(directories$bindings, pattern = ".tsv")
-experiment_files <- head(experiment_files, length(experiment_files) - 1)
-mirna_ids <- gsub("*.tsv", "", experiment_files)
-for (i in seq_len(length(experiment_files))) {
-    cat(paste0("Window extraction ", i, "/", length(experiment_files), "... "))
+binding_site_files <- dir(directories$bindings, pattern = ".tsv")
+binding_site_files <- head(binding_site_files, length(binding_site_files) - 1)
+mirna_ids <- gsub("*.tsv", "", binding_site_files)
 
-    experiment_filename <- experiment_files[i]
-    mirna_id <- mirna_ids[i]
-    window_path <- file.path(directories$windows, experiment_filename)
+n <- length(binding_site_files)
+max_cores <- as.numeric(settings$max_cores)
+cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
 
-    if (as.logical(settings$use_caching) && file.exists(window_path)) {
-        cat("Loaded from cache.\n")
-    } else {
-        raw_binding_sites <- read.table(file.path(directories$bindings_raw, experiment_filename), sep = "\t", header = TRUE)
-        expanded_binding_sites <- read.table(file.path(directories$bindings, experiment_filename), sep = "\t", header = TRUE)
-
-        utrs <- as.data.frame(lapply(utrs_all, rep, raw_binding_sites$site_abundance_6mer))
-
-        mirna_sequence <- mirna_sequences[mirna_sequences$mirna_id == mirna_id, ]$mirna_sequence
-
-        folding_windows <- extract_folding_windows(expanded_binding_sites, utrs, mirna_sequence)
-
-        write.table(folding_windows, window_path, quote = FALSE, sep = "\t", row.names = FALSE)
-
-        store_folding_windows(folding_windows, gsub("*.tsv", "", experiment_filename))
-
-        cat("Done.\n")
-    }
-}
+result <- mclapply(1:n, process_mirna, mc.cores = cores)
