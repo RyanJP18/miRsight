@@ -44,6 +44,7 @@ extract_sequence_coordinates <- function(annotations, ensdb, genome, chromosome_
         utr_infos_table$X3_utr_length <- 0
         utr_infos_table$cds_length <- 0
 
+        # determine utr start and ends according to cds start and ends (process is reversed depending on + or - strand)
         for (i in seq_len(nrow(utr_infos_table))) {
             if (utr_infos_table$strand[i] == "+") {
                 utr_infos_table$X3_utr_start[i] <- utr_infos_table$tx_cds_seq_end[i] + 1

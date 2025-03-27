@@ -15,7 +15,7 @@ create_new_frame <- dget("src/functions/create_new_frame.r")
 reverse_complement <- dget("src/functions/reverse_complement.r")
 
 # find any 6mer or 6mer offset binding sites and count them up to determine their abundance values, also check the cds
-locate_binding_sites <- function(utrs, cds, target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer) {
+locate_binding_sites <- function(target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer) {
     binding_sites <- create_new_frame(
         c("ensembl_transcript_id_version", 
         "site_abundance_6mer", "site_abundance_6off", "site_abundance_7a1", "site_abundance_7m8", "site_abundance_7mer", "site_abundance_8mer",
@@ -39,7 +39,7 @@ locate_binding_sites <- function(utrs, cds, target_6mer, target_6off, target_7me
 }
 
 # duplicate any transcripts that were found to have a binding site by the number of times a match was found for it, e.g. 3 sites = 3 rows, so we can process each separately
-expand_binding_sites <- function(binding_sites, utrs, target_6mer) {
+expand_binding_sites <- function(binding_sites, target_6mer) {
     # expand out the binding sites and apply the same transformation to the utrs for easy lookup
     # note: we're essentially duplicating any transcript that have more than 1 binding site so we can process them as separate entities
     #--- what we start with
@@ -69,9 +69,9 @@ expand_binding_sites <- function(binding_sites, utrs, target_6mer) {
 
 process_mirna <- function(i) {
 
-    if (!(as.logical(settings$use_caching) && file.exists(file.path(directories$bindings, paste0(mirna_sequences[i, ]$mirna_id, '.tsv'))))) {
-        
-        start_time <- Sys.time()
+    if (as.logical(settings$use_caching) && file.exists(file.path(directories$bindings, paste0(mirna_sequences[i, ]$mirna_id, '.tsv')))) {
+        message("Locating binding sites ", i, "/", n, " - loaded from cache.")
+    } else {
         
         mirna <- mirna_sequences[i, ]
         mirna_id <- mirna$mirna_id
@@ -94,10 +94,10 @@ process_mirna <- function(i) {
         target_8mer <- reverse_complement(site_8mer)
 
         # locate the binding sites and store them
-        binding_sites <- locate_binding_sites(utrs, cds, target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer)
+        binding_sites <- locate_binding_sites(target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer)
 
         # handle abundance as separate sites
-        expanded_binding_sites <- expand_binding_sites(binding_sites, utrs, target_6mer) 
+        expanded_binding_sites <- expand_binding_sites(binding_sites, target_6mer) 
 
         # only log binding sites for this transfection if there was at least one 6mer or better
         if (nrow(expanded_binding_sites) > 0) {
@@ -116,9 +116,7 @@ process_mirna <- function(i) {
                 site_7mer_m8, target_7mer_m8, site_8mer, target_8mer)
         }
 
-        message(paste0("Locating binding sites ", i, "/", n, " - done.", "-- Elapsed-- ", Sys.time() - start_time))
-    } else {
-        message(paste0("Locating binding sites ", i, "/", n, " - loaded from cache"))
+        message("Locating binding sites ", i, "/", n, " - done.")
     }
 
     write.table(target_sites, file.path(directories$bindings, "target-sites.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
@@ -127,25 +125,15 @@ process_mirna <- function(i) {
 
 # --- ENTRY POINT ---
 
-# get utr and cds sequences for all data with a l2fc value
 annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 mane <- read.table(file.path(directories$annotations, "mane.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 utrs <- read.table(file.path(directories$annotations, "utr_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 cds <- read.table(file.path(directories$annotations, "cds_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
-# apply filters
+# apply chromosome filter
 if (settings$chromosome_filter != "") {
     annotations <- annotations[annotations$chromosome_name %in% strsplit(settings$chromosome_filter, ",")[[1]], ]
 }
-# if (settings$ensembl_transcript_id_filter != "") {
-#     annotations <- annotations[sub("\\..*", "", annotations$ensembl_transcript_id_version) %in% strsplit(settings$ensembl_transcript_id_filter, ",")[[1]], ]
-# }
-# if (settings$ensembl_gene_id_filter != "") {
-#     annotations <- annotations[annotations$ensembl_gene_id %in% strsplit(settings$ensembl_gene_id_filter, ",")[[1]], ]
-# }
-# if (settings$external_gene_id_filter != "") {
-#     annotations <- annotations[annotations$external_gene_id %in% strsplit(settings$external_gene_id_filter, ",")[[1]], ]
-# }
 
 # filter to only transcripts where we have utr sequence annotations
 annotations <- annotations[annotations$ensembl_transcript_id_version %in% mane$ensembl_transcript_id_version, ]
@@ -161,7 +149,6 @@ if (settings$mirna_id_filter != "") {
 
 target_sites <- create_new_frame(c("mirna_id", "site_6mer", "target_6mer", "site_6off", "target_6off", "site_7mer_a1", "target_7mer_a1", "site_7mer_m8",
     "target_7mer_m8", "site_8mer", "target_8mer"), NULL, nrow(mirna_sequences))
-
 
 n <- nrow(mirna_sequences)
 max_cores <- as.numeric(settings$max_cores)

@@ -8,7 +8,7 @@
         "use_caching": "True",
         "max_cores": "-1",
 
-        "mirna_id_filter": "hsa-miR-21-3p,hsa-miR-133b,hsa-miR-28-3p,hsa-miR-4947-3p,hsa-miR-7150",
+        "mirna_id_filter": "hsa-miR-21-3p,hsa-miR-133b,hsa-miR-28-3p,hsa-miR-4947-3p,hsa-miR-7150,hsa-let-7a-3p",
 	    
         "ensembl_transcript_id_filter": "",
         "ensembl_gene_id_filter": "",
