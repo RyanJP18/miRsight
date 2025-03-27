@@ -60,8 +60,7 @@ class RNAFolder:
         
             if exit_code == 0:
                 print(f"Folding part 6/6 - {index + 1}/{window_count} - done.")
-                if Path("sequence_0001_basepairs").is_file():
-                    subprocess.run(f"rm -f *_basepairs", shell=True, check=True)
+                subprocess.call("rm -f *_basepairs", cwd=output_path, shell=True)
             else:
                 print("An error occurred running RNAplfold for " + input_path.stem)
 

@@ -84,7 +84,14 @@ load_rnaplfolds <- function(mirna_id, folding_windows, seed_features) {
             padded_zeros <- ""
         }
 
-        rnaplfolds_raw <- read.table(file.path(directories$folds_rnaplfold, mirna_id, paste0("sequence_", padded_zeros, i, "_lunp")), sep = "\t", skip = 2)[-1]
+        rnaplfold_file_path <- file.path(directories$folds_rnaplfold, mirna_id, paste0("sequence_", padded_zeros, i, "_lunp"))
+        if (!file.exists(rnaplfold_file_path) || file.info(rnaplfold_file_path)$size == 0) {
+            rnaplfolds$rnaplfold_seed[i] <- NA
+            rnaplfolds$rnaplfold_sup[i] <- NA
+            next
+        }
+        
+        rnaplfolds_raw <- read.table(rnaplfold_file_path, sep = "\t", skip = 2)[-1]
 
         start_6mer <- folding_windows$rnaplfold_6mer_pos[i]
         start_seed <- start_6mer
@@ -94,7 +101,6 @@ load_rnaplfolds <- function(mirna_id, folding_windows, seed_features) {
         if (seed_features$seed_binding_type[i] == "7mer-a1" || seed_features$seed_binding_type[i] == "8mer") {
             start_seed <- start_seed - 1 #7mer-a1 / 8mer starts at 1st base
         }
-
 
         seed_binding_count <- strtoi(seed_features$seed_binding_count[i])
 
