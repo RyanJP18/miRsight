@@ -49,20 +49,21 @@ class RNAFolder:
         input_dir, output_dir, window_filename, index, window_count, use_caching = args
 
         output_path = Path(output_dir, Path(window_filename).stem)
-        output_path.mkdir(parents = True, exist_ok = True)
-
-        input_path = Path("..", "..", "..", "..", input_dir, window_filename)
 
         if use_caching and Path(output_path, "sequence_0001_lunp").is_file():
             print(f"Folding part 6/6 - {index + 1}/{window_count} - loaded from cache.")
-        else: 
-            exit_code = subprocess.call(f"RNAplfold -L 40 -W 80 -u 14 --auto-id -o < {str(input_path)}", cwd=output_path, shell = True, stderr=subprocess.DEVNULL)
-        
-            if exit_code == 0:
-                print(f"Folding part 6/6 - {index + 1}/{window_count} - done.")
-                subprocess.call("rm -f *_basepairs", cwd=output_path, shell=True)
-            else:
-                print("An error occurred running RNAplfold for " + input_path.stem)
+            return
+            
+        output_path.mkdir(parents = True, exist_ok = True)
+        input_path = Path("..", "..", "..", "..", input_dir, window_filename)
+
+        exit_code = subprocess.call(f"RNAplfold -L 40 -W 80 -u 14 --auto-id -o < {str(input_path)}", cwd=output_path, shell = True, stderr=subprocess.DEVNULL)
+    
+        if exit_code == 0:
+            print(f"Folding part 6/6 - {index + 1}/{window_count} - done.")
+            subprocess.call("rm -f *_basepairs", cwd=output_path, shell=True)
+        else:
+            print("An error occurred running RNAplfold for " + input_path.stem)
 
     def __init__(self, settings, directories):
         use_caching = eval(settings["use_caching"])
