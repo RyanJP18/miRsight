@@ -57,11 +57,11 @@ class ConservationParser:
         return i + j
 
     def compute_conservation(self, args):
-        directories, features_filename, file_index, file_count, use_caching = args
+        directories, features_filename, file_index, file_count = args
 
         output_path = os.path.join(directories["features_conservation"], features_filename)
 
-        if use_caching and os.path.exists(output_path):
+        if self.use_caching and os.path.exists(output_path):
             print(f"Conservation extraction {str(file_index + 1)}/{str(file_count)} - loaded from cache.")
             return
 
@@ -89,11 +89,11 @@ class ConservationParser:
 
 
     def __init__(self, settings, directories):
-        use_caching = eval(settings["use_caching"])
+        self.use_caching = eval(settings["use_caching"])
         max_cores = int(settings['max_cores'])
         cores = max_cores if max_cores != -1 else multiprocessing.cpu_count() - 1
 
         with Pool(processes=cores) as pool:
             features_files = os.listdir(directories["features"])
             file_count = len(features_files)
-            pool.map(self.compute_conservation, [(directories, features_filename, file_index, file_count, use_caching) for (file_index, features_filename) in enumerate(features_files)])
+            pool.map(self.compute_conservation, [(directories, features_filename, file_index, file_count) for (file_index, features_filename) in enumerate(features_files)])

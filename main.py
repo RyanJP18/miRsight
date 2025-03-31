@@ -136,7 +136,7 @@ def main():
 
     
     print("11/11 Making predictions using machine learning model...")
-    MachineLearning(directories)
+    MachineLearning(settings, directories)
     print("11/11 Complete.\n")
 
 

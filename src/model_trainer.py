@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
 class ModelTrainer:
-    def __init__(self, input_path, unimputed_input_path, output_path, model_path):
+    def __init__(self, cores, input_path, unimputed_input_path, output_path, model_path):
         self.input_path = input_path
         self.unimputed_input_path = unimputed_input_path
         self.output_path = output_path
@@ -14,6 +14,8 @@ class ModelTrainer:
         self.scaler = pickle.load(open(Path(model_path).joinpath(Path('scaler.sav')), 'rb'))
         self.gs = pickle.load(open(Path(model_path).joinpath(Path('rf.sav')), 'rb'))
         self.model = self.gs.best_estimator_
+        if hasattr(self.model, 'n_jobs'):
+            self.model.set_params(n_jobs=cores)
         
         Path(self.output_path).mkdir(parents = True, exist_ok = True)
 
@@ -23,7 +25,6 @@ class ModelTrainer:
         dataset = data.copy()
 
         dataset = dataset.drop(columns = ["seed_binding_count"])
-
         dataset = dataset.drop(columns = ["perfect_pair_count_full", "longest_any_sequence_full", "longest_any_sequence_start_full", "any_pair_avg_dist_full", "gu_count_full", "mrna_binding_spread_12_17", "mrna_binding_spread_09_20"])
 
         #note this is now done in imputation step
@@ -55,8 +56,6 @@ class ModelTrainer:
         
     
     def predict(self, mirna):
-        
-        print("Predicting targets...")
 
         raw_test = pd.read_csv(Path.joinpath(Path(self.input_path, mirna + ".tsv")), header = "infer", na_values = '?', sep = "\t", index_col = 0)
         raw_unimputed_test = pd.read_csv(Path.joinpath(Path(self.unimputed_input_path, mirna + ".tsv")), header = "infer", na_values = '?', sep = "\t", index_col = 0)

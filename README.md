@@ -63,18 +63,18 @@ If you use this tool, please cite: TBD.
 6. Run `python main.py`
 
 # Configuration
-Before running miRsight, review the `settings` in `config.json` and, in particular, consider applying filters to speed up computation.
+Before running miRsight, review the `settings` in `config.json` and, in particular, consider applying an miRNA filter to speed up computation.
 
-If using the automatic Docker setup, you must rebuild the image after making changes to `config.json`. The image will rebuild much faster than the first time because all other setup is cached.
+If using the automatic Docker setup, you must rebuild the image after making changes to `config.json`. The image will rebuild much faster than the first time due to caching.
 
 ### Using Transcript, Gene and miRNA filters
 - One or more comma-separated filters can be provided for:
+    - `mirna_id` e.g. `"hsa-miR-129-5p,hsa-miR-30c-5p"`
     - `ensembl_transcript_id` e.g. `"ENST00000000233,ENST00000000412,ENST00000000442"`
     - `ensembl_gene_id` e.g. `"ENSG00000173153,ENSG00000001036"`
     - `external_gene_id` e.g. `"ESRRA,ARF5,SLC7A2,USH1C"`
-    - `mirna_id` e.g. `"hsa-miR-129-5p,hsa-miR-30c-5p"`
 - A blank filter means a complete whitelist; by default, miRsight will therefore attempt to generate all miRNA targets in Homo Sapiens unless a filter is set
-- There is no limit to how stringent or loose these filters can be, but you should consider that looser filters lead to longer computation times
+- There is no limit to how stringent or loose these filters can be, but you should consider that looser miRNA filters lead to longer computation times
 - Output, both intermediary and final, can found in miRsight's `output` folder - if you are only concerned with the final predictions, see `output/11-machine-learning`
 
 ### Using Custom Conservation and Shape Data

@@ -15,19 +15,19 @@ reverse_complement <- dget("src/functions/reverse_complement.r")
 
 # process and write out fold information to file
 store_folding_windows <- function(folding_windows, filename) {
-  write.table(folding_windows$fold_window_lr, file.path(directories$windows_rnafold_lr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
-  write.table(folding_windows$fold_window_rl, file.path(directories$windows_rnafold_rl, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
-  write.table(folding_windows$fold_window_ctr, file.path(directories$windows_rnafold_ctr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_lr, file.path(directories$windows_rnafold_lr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_rl, file.path(directories$windows_rnafold_rl, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_ctr, file.path(directories$windows_rnafold_ctr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-  # convert into a single column dataframe to better suit RNAcofold and then output to file
-  cofold_full_interleaved <- c(rbind(folding_windows$cofold_window_full, folding_windows$cofold_constraint_full))
-  write.table(cofold_full_interleaved, file.path(directories$windows_rnacofold_full, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    # convert into a single column dataframe to better suit RNAcofold and then output to file
+    cofold_full_interleaved <- c(rbind(folding_windows$cofold_window_full, folding_windows$cofold_constraint_full))
+    write.table(cofold_full_interleaved, file.path(directories$windows_rnacofold_full, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-  # same again but with seed only
-  cofold_seed_interleaved <- c(rbind(folding_windows$cofold_window_seed, folding_windows$cofold_constraint_seed))
-  write.table(cofold_seed_interleaved, file.path(directories$windows_rnacofold_seed, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    # same again but with seed only
+    cofold_seed_interleaved <- c(rbind(folding_windows$cofold_window_seed, folding_windows$cofold_constraint_seed))
+    write.table(cofold_seed_interleaved, file.path(directories$windows_rnacofold_seed, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-  write.table(folding_windows$rnaplfold_window, file.path(directories$windows_rnaplfold, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$rnaplfold_window, file.path(directories$windows_rnaplfold, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 }
 
 # find any 6mer or 6mer offset binding sites and count them up to determine their abundance values, also check the cds
