@@ -1,6 +1,6 @@
 {
     "settings": {
-        "ensembl_release": "101",
+        "ensembl_release": "113",
 
         "use_precompiled_conservation": "True",
         "use_precompiled_shape": "True",
