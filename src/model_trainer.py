@@ -81,8 +81,5 @@ class ModelTrainer:
 
         binding_pos = raw_unimputed_test['binding_site_pos']
         results['binding_pos'] = binding_pos
-        
-
-        print("Done.")
 
         return(results.loc[results['score'] >= 0.5])

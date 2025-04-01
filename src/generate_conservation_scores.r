@@ -99,7 +99,7 @@ load_phylo_pkg <- function() {
 generate_conservation_scores <- function(track, filename, transcripts) {
     conservation_name <- gsub("*.tsv", "", filename)
     if (as.logical(settings$use_caching) && file.exists(file.path(directories$conservation, filename))) {
-        message(paste("Conservation track", conservation_name, "- loaded from cache.\n"))
+        message(paste("Conservation track", conservation_name, "- loaded from cache."))
     } else {
         load_phylo_pkg()
 

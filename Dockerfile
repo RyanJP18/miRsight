@@ -39,9 +39,9 @@ RUN apt-get install -y r-base=4.2.0-* r-base-dev=4.2.0-* r-base-html=4.2.0-* r-r
 # Set up R and any required packages
 RUN mkdir -p /rlib && chown -R root:root /rlib
 ENV R_LIBS_USER=/rlib
-RUN R -e "install.packages(c('jsonlite', 'stringr', 'dplyr', 'mice'), lib='/rlib')"
+RUN R -e "install.packages(c('jsonlite', 'stringi', 'stringr', 'dplyr', 'mice'), lib='/rlib')"
 RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
-    R -e "BiocManager::install(c('ensembldb', 'AnnotationHub', 'BSgenome.Hsapiens.NCBI.GRCh38'), lib='/rlib')"
+    R -e "BiocManager::install(c('ensembldb', 'AnnotationHub', 'BSgenome.Hsapiens.NCBI.GRCh38', 'GenomicScores'), lib='/rlib')"
 
 # Install the ViennaRNA Suite 2.5.0 specifically
 RUN curl -L -O https://github.com/ViennaRNA/ViennaRNA/releases/download/v2.5.0/ViennaRNA-2.5.0.tar.gz
@@ -51,11 +51,6 @@ WORKDIR /ViennaRNA-2.5.0
 RUN ./configure
 RUN make
 RUN make install
-
-RUN R -e "install.packages(c('stringi'), lib='/rlib')"
-
-RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
-R -e "BiocManager::install(c('GenomicScores'), lib='/rlib')"
 
 # Copy over app code
 WORKDIR /app
