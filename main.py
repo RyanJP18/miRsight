@@ -65,11 +65,13 @@ def main():
     print("01/11 Complete.\n")
 
 
-    print("02/11 Generating conservation scores...")
-    if settings["use_precompiled_conservation"]:
-        print("Using precompiled conservation data...")
+    print("02/11 Generating a conservation score cache...")
+    if eval(settings["use_precompiled_conservation"]):
+        print("Using precompiled data...")
         with tarfile.open("precompiled_conservation_data.tar.gz", "r:gz") as tar:
             tar.extractall(path=".")
+    else:
+        print("Using fresh data...")
 
     process = subprocess.run(["Rscript", "src/generate_conservation_scores.r", config_path], shell = False)
     if process.returncode != 0:
@@ -113,10 +115,12 @@ def main():
 
 
     print("08/11 Parsing shape reactivity values for each miRNA...")
-    if settings["use_precompiled_shape"]:
-        print("Using precompiled shape data...")
+    if eval(settings["use_precompiled_shape"]):
+        print("Using precompiled data...")
         with tarfile.open("precompiled_shape_data.tar.gz", "r:gz") as tar:
             tar.extractall(path=".")
+    else:
+        print("Using fresh data...")
 
     ShapeParser(settings, directories)
     print("08/11 Complete.\n")
@@ -141,7 +145,7 @@ def main():
 
 
     print("\nAll done!\n")
-    print("See output/11-predictions for the final prediction output.\n")
+    print("See output/11-predictions for the final predictions.\n")
 
 # Entry point
 if __name__ == "__main__":

@@ -43,13 +43,6 @@ RUN R -e "install.packages(c('jsonlite', 'stringr', 'dplyr', 'mice'), lib='/rlib
 RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
     R -e "BiocManager::install(c('ensembldb', 'AnnotationHub', 'BSgenome.Hsapiens.NCBI.GRCh38'), lib='/rlib')"
 
-# TODO: is this still going to be used?
-# RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
-# R -e "BiocManager::install(c('GenomicScores', 'phyloP100way.UCSC.hg38'), lib='/rlib')"
-
-# TODO: don't forget the shape parser file has changed a little, potentialy some of the machine learning files wil have too
-
-
 # Install the ViennaRNA Suite 2.5.0 specifically
 RUN curl -L -O https://github.com/ViennaRNA/ViennaRNA/releases/download/v2.5.0/ViennaRNA-2.5.0.tar.gz
 RUN tar -zxvf ViennaRNA-2.5.0.tar.gz
@@ -60,6 +53,9 @@ RUN make
 RUN make install
 
 RUN R -e "install.packages(c('stringi'), lib='/rlib')"
+
+RUN R -e "if (!requireNamespace('BiocManager', quietly=TRUE)) install.packages('BiocManager', lib='/rlib')" && \
+R -e "BiocManager::install(c('GenomicScores'), lib='/rlib')"
 
 # Copy over app code
 WORKDIR /app

@@ -14,8 +14,8 @@ class MachineLearning:
 
         model = ModelTrainer(cores, directories["features_full_imputed"], directories["features_cons_shape"], directories["machine_learning"], directories["model_data"])
         
-        experiment_files = os.listdir(directories["features_full_imputed"])
-        names = [f.split('.')[0] for f in experiment_files]
+        mirna_files = os.listdir(directories["features_full_imputed"])
+        names = [f.split('.')[0] for f in mirna_files]
         
         i = 0
         for name in names:
