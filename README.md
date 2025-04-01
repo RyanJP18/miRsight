@@ -13,7 +13,7 @@
 # About
 This is the command line tool used to generate mRNA:miRNA target predictions in Homo Sapiens for the [miRsight website](http://mirsight.info). If you wish to simply use miRsight to produce and filter a set of predictions, it is strongly recommended you use the website directly instead.
 
-If you need to run or configure miRsight locally, miRsight is capable of running on Windows, Linux and Mac on most modern computers via an automated Docker setup. Instructions are also provided for use on HPCs; however, such installations require a degree of manual R and Python package management and are Linux-only due to dependency limitations.
+If you need to run or configure miRsight locally (e.g. to use a specific genome version), miRsight is capable of running on Windows, Linux and Mac on most modern computers via an automated Docker setup. Instructions are also provided for use on HPCs; however, such installations require a degree of manual R and Python package management and are Linux-only due to dependency limitations.
 
 If you use this tool, please cite: TBD.
 
@@ -25,8 +25,8 @@ If you use this tool, please cite: TBD.
 
 ##### Option 1: Docker via CLI
 1. Ensure Docker is running-- 
-   - Windows/Mac: simply run the app
-   - Linux: run `systemctl start docker`
+   - Windows/Mac: simply run the Docker app
+   - Linux: run `systemctl start docker` in a terminal
 2. Open a terminal and `cd path/to/miRsight`
 3. Run `docker build -t mirsight .` to build the image
 4. 
@@ -75,12 +75,12 @@ If using the automatic Docker setup, you must rebuild the image after making cha
     - `external_gene_id` e.g. `"ESRRA,ARF5,SLC7A2,USH1C"`
 - A blank filter means a complete whitelist; by default, miRsight will therefore attempt to generate all miRNA targets in Homo Sapiens unless a filter is set
 - There is no limit to how stringent or loose these filters can be, but you should consider that looser miRNA filters lead to longer computation times
-- Output, both intermediary and final, can found in miRsight's `output` folder - if you are only concerned with the final predictions, see `output/11-machine-learning`
+- Output, both intermediary and final, can found in miRsight's `output` folder - if you are only concerned with the final predictions, see `output/11-target-predictions`
 
 ### Using Custom Conservation and Shape Data
 By default, the `use_precompiled_conservation` and `use_precompiled_shape` flags in `config.json` tell miRsight to use precompiled data. If disabled:
 
-- miRsight will dynamically generate fresh phast100 conservation data against the chosen `ensembl_release` (note: will be slow)
+- miRsight will dynamically generate fresh phylo100 conservation data against the chosen `ensembl_release` (note: will be slow)
 - You can place your own `.shape` output data (from tools like [icSHAPE-pipe](https://github.com/Jun-Lizst/icSHAPE-pipe)) in the `shape` folder to have miRsight use it automatically
 
 # Publications
