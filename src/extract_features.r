@@ -4,6 +4,7 @@ config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
 
+suppressMessages(library(parallel))
 
 
 # --- FUNCTIONS ---
@@ -17,6 +18,7 @@ determine_most_likely_folds <- function(rnafolds, rnafolds_lr, rnafolds_rl, rnaf
         mfe_lr <- as.numeric(as.character(paste0("-", gsub("^\\D+", "", gsub("[^0-9.-]", "", rnafolds_lr$rnafold_struct[i])))))
         mfe_rl <- as.numeric(as.character(paste0("-", gsub("^\\D+", "", gsub("[^0-9.-]", "", rnafolds_rl$rnafold_struct[i])))))
         mfe_ctr <- as.numeric(as.character(paste0("-", gsub("^\\D+", "", gsub("[^0-9.-]", "", rnafolds_ctr$rnafold_struct[i])))))
+        
         if (mfe_lr <= mfe_rl) {
             if (mfe_lr <= mfe_ctr) {
                 rnafolds[i, 2:4] <- c(substr(as.character(rnafolds_lr$rnafold_struct[i]), 1, nchar(as.character(rnafolds_lr$rnafold_struct[i])) - 9), mfe_lr, -1)
@@ -36,11 +38,11 @@ determine_most_likely_folds <- function(rnafolds, rnafolds_lr, rnafolds_rl, rnaf
 }
 
 # get the rnafold data for the mirna and put it into a single dataframe
-load_rnafolds <- function(experiment_name, expanded_binding_sites, load_rnafolds_lr, load_rnafolds_rl) {
+load_rnafolds <- function(mirna_id, expanded_binding_sites, rnafolds_lr, rnafolds_rl) {
     rnafolds <- create_new_frame(c("ensembl_transcript_id_version", "rnafold_struct", "rnafold_mfe", "rnafold_direction"), NULL, nrow(expanded_binding_sites))
     rnafolds$ensembl_transcript_id_version <- expanded_binding_sites$ensembl_transcript_id_version
 
-    rnafolds_ctr_raw <- read.table(file.path(directories$folds_rnafold_ctr, paste0(experiment_name, ".csv")), sep = ",", header = FALSE)
+    rnafolds_ctr_raw <- read.table(file.path(directories$folds_rnafold_ctr, paste0(mirna_id, ".csv")), sep = ",", header = FALSE)
     rnafolds_ctr <- do.call("cbind", split(rnafolds_ctr_raw, rep(c(1, 2), length.out = nrow(rnafolds_ctr_raw))))
     colnames(rnafolds_ctr) <- c("mirna_sequence", "rnafold_struct")
 
@@ -48,18 +50,18 @@ load_rnafolds <- function(experiment_name, expanded_binding_sites, load_rnafolds
 }
 
 # get the rnacofold data for the mirna and put it into a single dataframe
-load_rnacofolds <- function(experiment_name, expanded_binding_sites) {
+load_rnacofolds <- function(mirna_id, expanded_binding_sites) {
     rnacofolds <- create_new_frame(c("ensembl_transcript_id_version"), NULL, nrow(expanded_binding_sites))
     rnacofolds$ensembl_transcript_id_version <- expanded_binding_sites$ensembl_transcript_id_version
 
     # get the rna cofold data and bind it to the "targets" data frame so we have everything in one place (transcript IDs, rnafold changs and cofolds)
-    rnacofolds_full <- read.table(file.path(directories$folds_rnacofold_full, paste0(experiment_name, ".csv")), sep = ",", header = TRUE)
+    rnacofolds_full <- read.table(file.path(directories$folds_rnacofold_full, paste0(mirna_id, ".csv")), sep = ",", header = TRUE)
     rnacofolds_full <- rnacofolds_full[, !(names(rnacofolds_full) %in% c("seq_num", "seq_id"))] # drop unneeded columns
     colnames(rnacofolds_full) <- c("rnacofold_full_sequence", "rnacofold_full_struct", "rnacofold_full_mfe")
     rnacofolds <- cbind(rnacofolds, rnacofolds_full) # bind the targets and cofolds together
 
     # get the seed cofold data and bind it to the "targets" data frame so we have everything in one place (transcript IDs, rnafold changs and cofolds)
-    rnacofolds_seed <- read.table(file.path(directories$folds_rnacofold_seed, paste0(experiment_name, ".csv")), sep = ",", header = TRUE)
+    rnacofolds_seed <- read.table(file.path(directories$folds_rnacofold_seed, paste0(mirna_id, ".csv")), sep = ",", header = TRUE)
     rnacofolds_seed <- rnacofolds_seed[, !(names(rnacofolds_seed) %in% c("seq_num", "seq_id"))] # drop unneeded columns
     colnames(rnacofolds_seed) <- c("rnacofold_seed_sequence", "rnacofold_seed_struct", "rnacofold_seed_mfe")
     rnacofolds <- cbind(rnacofolds, rnacofolds_seed) # bind the targets and cofolds together
@@ -67,12 +69,12 @@ load_rnacofolds <- function(experiment_name, expanded_binding_sites) {
     return(rnacofolds)
 }
 
-load_rnaplfolds <- function(experiment_name, folding_windows, seed_features) {
+load_rnaplfolds <- function(mirna_id, folding_windows, seed_features) {
     rnaplfolds <- create_new_frame(c("ensembl_transcript_id_version", "rnaplfold_seed", "rnaplfold_sup"), NULL, nrow(folding_windows))
     rnaplfolds$ensembl_transcript_id_version <- folding_windows$ensembl_transcript_id_version
 
     for (i in seq_len(nrow(folding_windows))) {
-        # rnaplfold's output format is awkward, it stores the files as sequence_0001 to ~sequence_6000 so we have to pad 0s to the filename to keep their format
+        # rnaplfold's output files are sequence_0001 to ~sequence_6000, so we have to pad 0s to the filename to keep their format
         padded_zeros <- "000"
         if (i >= 10 && i < 100) {
             padded_zeros <- "00"
@@ -82,7 +84,14 @@ load_rnaplfolds <- function(experiment_name, folding_windows, seed_features) {
             padded_zeros <- ""
         }
 
-        rnaplfolds_raw <- read.table(file.path(directories$folds_rnaplfold, experiment_name, paste0("sequence_", padded_zeros, i, "_lunp")), sep = "\t", skip = 2)[-1]
+        rnaplfold_file_path <- file.path(directories$folds_rnaplfold, mirna_id, paste0("sequence_", padded_zeros, i, "_lunp"))
+        if (!file.exists(rnaplfold_file_path) || file.info(rnaplfold_file_path)$size == 0) {
+            rnaplfolds$rnaplfold_seed[i] <- NA
+            rnaplfolds$rnaplfold_sup[i] <- NA
+            next
+        }
+        
+        rnaplfolds_raw <- read.table(rnaplfold_file_path, sep = "\t", skip = 2)[-1]
 
         start_6mer <- folding_windows$rnaplfold_6mer_pos[i]
         start_seed <- start_6mer
@@ -93,11 +102,11 @@ load_rnaplfolds <- function(experiment_name, folding_windows, seed_features) {
             start_seed <- start_seed - 1 #7mer-a1 / 8mer starts at 1st base
         }
 
-
         seed_binding_count <- strtoi(seed_features$seed_binding_count[i])
 
         rnaplfolds$rnaplfold_seed[i] <- rnaplfolds_raw[start_seed + seed_binding_count, seed_binding_count]
         rnaplfolds$rnaplfold_sup[i] <- rnaplfolds_raw[base_20, 12] # bases 09-20
+    }
 
     return(rnaplfolds)
 }
@@ -243,9 +252,9 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
     mirna_binds <- supplementary_pairs[[2]]
     mrna_binds <- supplementary_pairs[[3]]
 
-    if (mirna_binds == 0 && mrna_binds == 0) {
-        return(c(current_transcript_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-    }
+    # if (mirna_binds == 0 && mrna_binds == 0) {
+    #     return(c(current_transcript_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    # }
 
     perfect_pair_count <- 0
     wobble_pair_count <- 0
@@ -407,9 +416,12 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
     au_content_sup <- lengths(regmatches(au_window_sup, gregexpr("(A|U)", au_window_sup)))
 
     au_content_3 <- au_content_3 / nchar(au_window_lr)
-    au_content_sup <- au_content_sup / nchar(au_window_sup)
 
-
+    if (au_window_sup == "") {
+        au_content_sup <- "NA"
+    } else {
+        au_content_sup <- au_content_sup / nchar(au_window_sup)
+    }
 
     weights <- c(1/3, 1/4, 1/5, 1/6, 1/7, 1/8, 1/9, 1/10, 1/11, 1/12, 1/13, 1/14, 1/15, 1/16, 1/17, 1/18, 1/19, 1/20, 1/21, 1/22, 1/23, 1/24, 1/25, 1/26, 1/27, 1/28, 1/29, 1/30, 1/31, 1/32)
     dist_scalars <- weights / sum(weights)
@@ -417,70 +429,65 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
     au_content_5_weighted <- 0
     au_5_match_idx <- gregexpr("(A|U)", au_window_rl)[[1]]
     for (idx in au_5_match_idx) {
+        if (idx == -1) {
+            # handling for very short strings (only one base in the rl window)
+            if (au_window_rl == "A" || au_window_rl == "U") {
+                au_content_5_weighted <- 1/3
+            } else {
+                au_content_5_weighted <- 0
+            }
+            break
+        }
+
         au_content_5_weighted <- au_content_5_weighted + dist_scalars[idx]
     }
-    
     
     return(c(current_transcript_id, au_content_3, au_content_sup, au_content_5_weighted))
 }
 
-
-
-# --- ENTRY POINT ---
-
-annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE)
-
-experiment_files <- dir(directories$windows, pattern = ".tsv")
-experiment_names <- gsub("*.tsv", "", experiment_files)
-
-for (i in seq_len(length(experiment_files))) {
-    cat(paste0("Feature extraction ", i, "/", length(experiment_files), "... "))
-
-    experiment_name <- experiment_names[i]
-    experiment_filename <- experiment_files[i]
-    feature_path <- file.path(directories$features, experiment_filename)
-
-    if (as.logical(settings$use_caching) && file.exists(feature_path)) {
-        cat("Loaded from cache.\n")
+process_mirna <- function(i) {
+    
+    if (as.logical(settings$use_caching) && file.exists(file.path(directories$features, window_files[i]))) {
+        message("Feature extraction ", i, "/", n, " - loaded from cache.")
     } else {
-        expanded_binding_sites <- read.table(file.path(directories$bindings, experiment_filename), sep = "\t", header = TRUE)
+        mirna_id <- mirna_ids[i]
+        window_filename <- window_files[i]
+        output_path <- file.path(directories$features, window_filename)
 
+        expanded_binding_sites <- read.table(file.path(directories$bindings, window_filename), sep = "\t", header = TRUE)
+        if (nrow(expanded_binding_sites) == 0)
+        {
+            write.table(data.frame(), output_path, sep = "\t", row.names = FALSE, col.names = TRUE) # no target sites, write an empty file
+            next
+        }
         
-        rnafolds_lr_raw <- read.table(file.path(directories$folds_rnafold_lr, paste0(experiment_name, ".csv")), sep = ",", header = FALSE)
+        # rnafold output alternates every other line between the mirna sequence and the rnafold structure prediction- split it into a two column dataframe
+        rnafolds_lr_raw <- read.table(file.path(directories$folds_rnafold_lr, paste0(mirna_id, ".csv")), sep = ",", header = FALSE)
         rnafolds_lr <- do.call("cbind", split(rnafolds_lr_raw, rep(c(1, 2), length.out = nrow(rnafolds_lr_raw))))
         colnames(rnafolds_lr) <- c("mirna_sequence", "rnafold_struct")
 
-        rnafolds_rl_raw <- read.table(file.path(directories$folds_rnafold_rl, paste0(experiment_name, ".csv")), sep = ",", header = FALSE)
+        rnafolds_rl_raw <- read.table(file.path(directories$folds_rnafold_rl, paste0(mirna_id, ".csv")), sep = ",", header = FALSE)
         rnafolds_rl <- do.call("cbind", split(rnafolds_rl_raw, rep(c(1, 2), length.out = nrow(rnafolds_rl_raw))))
         colnames(rnafolds_rl) <- c("mirna_sequence", "rnafold_struct")
 
+        rnafolds <- load_rnafolds(mirna_id, expanded_binding_sites, rnafolds_lr, rnafolds_rl)
+        rnacofolds <- load_rnacofolds(mirna_id, expanded_binding_sites)
 
-        rnafolds <- load_rnafolds(experiment_name, expanded_binding_sites, rnafolds_lr, rnafolds_rl)
-        rnacofolds <- load_rnacofolds(experiment_name, expanded_binding_sites)
+        # prepare dataframes to group features by their category
+        seed_features <- create_new_frame(c("ensembl_transcript_id_version", "seed_binding_count", "seed_binding_type", "perfect_pair_1"), NULL, nrow(expanded_binding_sites))
+        single_base_features <- create_new_frame(c("ensembl_transcript_id_version", "gu_1", "gu_8", "perfect_pair_9", "gu_9", "perfect_pair_10", "gu_10", "mirna_1", "mirna_8", "mrna_8"), NULL, nrow(expanded_binding_sites))
+        au_content_features <- create_new_frame(c("ensembl_transcript_id_version", "au_content_3", "au_content_sup", "au_content_5_weighted"), NULL, nrow(expanded_binding_sites))
 
-        seed_features <- create_new_frame(
-            c("ensembl_transcript_id_version", "seed_binding_count", "seed_binding_type", "perfect_pair_1"), 
-            NULL, nrow(expanded_binding_sites))
-
-        single_base_features <- create_new_frame(
-            c("ensembl_transcript_id_version", "gu_1", "gu_8", "perfect_pair_9", "gu_9", "perfect_pair_10", "gu_10", "mirna_1", "mirna_8", "mrna_8"),
-            NULL, nrow(expanded_binding_sites))
-
+        # for the window features, we want to record three separate varieties: bases 12-17, 09-20 and full supplementary portion so make three dataframes
         window_frame_columns <- c("ensembl_transcript_id_version", "perfect_pair_count", "longest_any_sequence", "longest_any_sequence_start", "any_pair_avg_dist", "gu_count", "mrna_binding_spread")
         window_features_12_17 <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
         window_features_09_20 <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
         window_features_full <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
-        colnames(window_features_12_17) <- paste(colnames(window_features_12_17), "12_17", sep = "_")
-        colnames(window_features_09_20) <- paste(colnames(window_features_09_20), "09_20", sep = "_")
-        colnames(window_features_full) <- paste(colnames(window_features_full), "full", sep = "_")
-        colnames(window_features_12_17)[1] <- "ensembl_transcript_id_version"
-        colnames(window_features_09_20)[1] <- "ensembl_transcript_id_version"
-        colnames(window_features_full)[1] <- "ensembl_transcript_id_version"
+        colnames(window_features_12_17)[-1] <- paste(colnames(window_features_12_17)[-1], "12_17", sep = "_")
+        colnames(window_features_09_20)[-1] <- paste(colnames(window_features_09_20)[-1], "09_20", sep = "_")
+        colnames(window_features_full)[-1] <- paste(colnames(window_features_full)[-1], "full", sep = "_")
 
-        au_content_features <- create_new_frame(
-            c("ensembl_transcript_id_version", "au_content_3", "au_content_sup", "au_content_5_weighted"),
-            NULL, nrow(expanded_binding_sites))
-
+        # build up features row by row
         for (j in seq_len(nrow(expanded_binding_sites))) {
             current_transcript_id <- expanded_binding_sites$ensembl_transcript_id_version[j]
 
@@ -489,18 +496,18 @@ for (i in seq_len(length(experiment_files))) {
 
             seed_features[j, ] <- extract_seed_features(current_transcript_id, seq, struct)
             single_base_features[j, ] <- extract_single_base_features(current_transcript_id, seq)
+            au_content_features[j, ] <- extract_au_content_features(current_transcript_id, rnafolds_lr[j, 1], rnafolds_rl[j, 1])
 
             sequence_pairs <- determine_pairs(struct)
-            
-            au_content_features[j, ] <- extract_au_content_features(current_transcript_id, rnafolds_lr[j, 1], rnafolds_rl[j, 1])
             window_features_12_17[j, ] <- extract_generic_window_features(current_transcript_id, sequence_pairs, seq, 12, 17)
             window_features_09_20[j, ] <- extract_generic_window_features(current_transcript_id, sequence_pairs, seq, 09, 20)
             window_features_full[j, ] <- extract_generic_window_features(current_transcript_id, sequence_pairs, seq, 01, 99)
         }
 
-        folding_windows <- read.table(file.path(directories$windows, experiment_filename), sep = "\t", header = TRUE)
-        rnaplfolds <- load_rnaplfolds(experiment_name, folding_windows, seed_features)
-
+        folding_windows <- read.table(file.path(directories$windows, window_filename), sep = "\t", header = TRUE)
+        rnaplfolds <- load_rnaplfolds(mirna_id, folding_windows, seed_features)
+      
+        # combine all extracted features into one dataframe
         combined_features <- cbind(
             single_base_features,
             seed_features[, -which(names(seed_features) == "ensembl_transcript_id_version")],
@@ -531,8 +538,8 @@ for (i in seq_len(length(experiment_files))) {
                 combined_features$dist_closest_utr_end[j] <- binding_pos
             }
         }
-
-        # for cases of abundance, track which is likely the strongest candidate (most seed bases paired > strongest mfe)
+        
+        # for cases of abundance (MTS), track which is likely the strongest candidate (determined by: most seed bases paired folloed by strongest mfe)
         combined_features$best_abundance <- FALSE
         best_abundance_idx <- -1
         best_abundance_mfe <- 0
@@ -583,7 +590,7 @@ for (i in seq_len(length(experiment_files))) {
             combined_features$best_abundance[best_abundance_idx] <- TRUE
         }
 
-        # discount the binding of the transcript itself from abundance
+        # discount the binding of the transcript itself from abundance (MTS)
         for (j in seq_len(nrow(combined_features))) {
             if (seed_features$seed_binding_type[j] == "6mer") {
                 seed_features$site_abundance_6mer[j] <- seed_features$site_abundance_6mer[j] - 1
@@ -599,8 +606,23 @@ for (i in seq_len(length(experiment_files))) {
         }
 
         # Output features
-        write.table(combined_features, feature_path, quote = FALSE, sep = "\t", row.names = FALSE)
+        write.table(combined_features, output_path, quote = FALSE, sep = "\t", row.names = FALSE)
 
-        cat("Done.\n")
+        message("Feature extraction ", i, "/", n, " - done.")
     }
 }
+
+
+
+# --- ENTRY POINT ---
+
+annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE)
+
+window_files <- dir(directories$windows, pattern = ".tsv")
+mirna_ids <- gsub("*.tsv", "", window_files)
+
+n <- length(window_files)
+max_cores <- as.numeric(settings$max_cores)
+cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
+
+result <- mclapply(1:n, process_mirna, mc.cores = cores)

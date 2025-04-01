@@ -1,121 +1,91 @@
 import csv
+import os
+import multiprocessing
 import pandas as pd
 import numpy as np
-import os
 from pathlib import Path
+from multiprocessing import Pool
 
 class ShapeParser:
 
-    def parse_shape(self, transcript_id, features, shape, shape_source):
-        ts_matches = features.loc[features['ensembl_transcript_id_version'] == transcript_id]
+    def parse_shape(self, transcript_id, features, transcript_ids, shape, shape_source):
+        ts_matches = features.loc[transcript_ids == transcript_id]
 
         if (len(ts_matches) != 0): 
+            # the first few cells are metadata, 2+ is shape reactivity scores
             read_len = int(shape[0])
             shape_scores = shape[2:]
 
+            # for each transcript, get shape reactivity scores between specific bases (seed and supplementary portions)
             for index, ts in ts_matches.iterrows():
-                utr_start = read_len - ts["X3_utr_length"] 
-                #match pos is relative to the 6mer, additionally it counts wrong because python goes from 0 whereas R goes from 1. i.e. a match at pos 2 needs to be match_pos - 1 to give it an accessor of 1, or -2 to get the full 8 base seed
+                utr_start = read_len - ts["X3_utr_length"]
+                # note: pos is relative to the 6mer; it also counts wrong because python goes from 0 whereas R goes from 1
+                # e.g. a match at pos 2 needs to be match_pos - 1 to give it an accessor of 1, or -2 to get the full 8 base seed
                 target_start = utr_start + ts["binding_site_pos"] - 2
                 target_end = target_start + 8
-                sup_start = target_end # 9
-                sup_end = sup_start + 12 # 20
+                sup_start = target_end # (note: double tested, doing a +1 skips a base)
+                sup_end = sup_start + 12
                 
                 shape_scores_seed_raw = shape_scores[target_start:target_end]
                 shape_scores_sup_raw = shape_scores[sup_start:sup_end]
+                
+                # shape_scores_seed = list(map(float, [score for score in shape_scores_seed_raw if score != "NULL"]))
+                # shape_scores_sup = list(map(float, [score for score in shape_scores_sup_raw if score != "NULL"]))
 
                 shape_scores_seed = list(map(float, [raw_score.replace("NULL", "0") for raw_score in shape_scores_seed_raw]))
                 shape_scores_sup = list(map(float, [raw_score.replace("NULL", "0") for raw_score in shape_scores_sup_raw]))
 
-                features.at[index, shape_source + "_seed"] = np.mean(np.nan_to_num(shape_scores_seed))
-                features.at[index, shape_source + "_sup"] = np.mean(np.nan_to_num(shape_scores_sup))
+                if (len(shape_scores_seed) > 0):
+                    features.at[index, shape_source + "_seed"] = np.mean(np.nan_to_num(shape_scores_seed))
 
+                if (len(shape_scores_sup) > 0):
+                    features.at[index, shape_source + "_sup"] = np.mean(np.nan_to_num(shape_scores_sup))
 
+    def compute_shape(self, args):
+        directories, features_filename, file_index, file_count = args
+
+        output_path = os.path.join(directories["parsed_shape"], features_filename)
+
+        if self.use_caching and os.path.exists(output_path):
+            print(f"Shape parse {str(file_index + 1)}/{str(file_count)} - loaded from cache.")
+            return
+
+        features = pd.read_csv(os.path.join(directories["features_conservation"], features_filename), header = "infer", na_values = "?", sep = "\t")
+        features = features[["ensembl_transcript_id_version", "X3_utr_length", "binding_site_pos"]]
+
+        shape_cols = ["ensembl_transcript_id_version"]
+
+        # cycle through each shape file and generate a set of scores for each base
+        # note: uses any shape files present in the shape folder and takes and average value between them
+        for shape_filename in os.listdir(directories["shape_data"]):
+            shape_source = Path(shape_filename).stem.lower()
+            features[shape_source + "_seed"] = 'NA'
+            features[shape_source + "_sup"] = 'NA'
+
+            shape_cols.append(shape_source + "_seed")
+            shape_cols.append(shape_source + "_sup")
+
+            with open(os.path.join(directories["shape_data"], shape_filename)) as shape_file:
+                shapes = csv.reader(shape_file, delimiter="\t")
+
+                for shape in shapes:
+                    shape_ts_id = shape.pop(0).split('.')[0] # get the id of the current shape transcript without the version
+                    transcript_ids = features['ensembl_transcript_id_version'].str.split('.').str[0] # get the ids without the version
+                    self.parse_shape(shape_ts_id, features, transcript_ids, shape, shape_source)
+
+        parsed_shape = features[shape_cols]
+        parsed_shape.to_csv(output_path, sep = "\t", index = False)
+
+        print(f"Shape parse {str(file_index + 1)}/{str(file_count)} - done.")
 
     def __init__(self, settings, directories):
-        features_files = os.listdir(directories["features_conservation"])
-        j = 0
+        self.use_caching = eval(settings["use_caching"])
+        max_cores = int(settings['max_cores'])
+        cores = max_cores if max_cores != -1 else multiprocessing.cpu_count() - 1
 
-        for features_filename in features_files:    
-            j += 1
+        with Pool(processes=cores) as pool:
+            features_files = os.listdir(directories["features_conservation"])
+            file_count = len(features_files)
+            pool.map(self.compute_shape, [(directories, features_filename, file_index, file_count) for (file_index, features_filename) in enumerate(features_files)])
 
-            if (eval(settings["use_caching"]) and os.path.exists(os.path.join(directories["features_cons_shape"], features_filename))):
-                print("Shape extraction " + str(j) + "/" + str(len(features_files)) + "... Loaded from cache.")
-                continue
-
-            features = pd.read_csv(os.path.join(directories["features_conservation"], features_filename), header = "infer", na_values = "?", sep = "\t")
-
-            for shape_filename in os.listdir(directories["shape_data"]):
-                shape_source = Path(shape_filename).stem
-                features[shape_source + "_seed"] = -1
-                features[shape_source + "_sup"] = -1
-
-                with open(os.path.join(directories["shape_data"], shape_filename)) as shape_file:
-                    shapes = csv.reader(shape_file, delimiter="\t")
-
-                    for shape in shapes:
-                        self.parse_shape(shape.pop(0), features, shape, shape_source)
-
-            for index, feature in features.iterrows():
-                total = 0
-                available = 0
-                if feature["hela_seed"] >= 0:
-                    available = available + 1
-                    total = total + feature["hela_seed"]
-                
-                if feature["hek293_seed"] >= 0:
-                    available = available + 1
-                    total = total + feature["hek293_seed"]
-                
-                if feature["h9_seed"] >= 0:
-                    available = available + 1
-                    total = total + feature["h9_seed"]
-                
-                if feature["hepg2n_seed"] >= 0:
-                    available = available + 1
-                    total = total + feature["hepg2n_seed"]
-                
-                if feature["k562_seed"] >= 0:
-                    available = available + 1
-                    total = total + feature["k562_seed"]
-                
-                if available == 0:
-                    features.at[index, "shape_seed"] = np.nan
-                else:
-                    total = total / available
-                    features.at[index, "shape_seed"] = total
-            
-                total = 0
-                available = 0
-                if feature["hela_sup"] >= 0:
-                    available = available + 1
-                    total = total + feature["hela_sup"]
-                
-                if feature["hek293_sup"] >= 0:
-                    available = available + 1
-                    total = total + feature["hek293_sup"]
-                
-                if feature["h9_sup"] >= 0:
-                    available = available + 1
-                    total = total + feature["h9_sup"]
-                
-                if feature["hepg2n_sup"] >= 0:
-                    available = available + 1
-                    total = total + feature["hepg2n_sup"]
-                
-                if feature["k562_sup"] >= 0:
-                    available = available + 1
-                    total = total + feature["k562_sup"]
-                
-                if available == 0:
-                    features.at[index, "shape_sup"] = np.nan
-                else:
-                    total = total / available
-                    features.at[index, "shape_sup"] = total
-
-            
-            features = features.drop(columns = ["hela_seed", "hek293_seed", "h9_seed", "hepg2n_seed", "k562_seed", "hela_sup", "hek293_sup", "h9_sup", "hepg2n_sup", "k562_sup"])
-
-            features.to_csv(os.path.join(directories["features_cons_shape"], features_filename), sep = "\t", index = False)
-            print("Shape extraction " + str(j) + "/" + str(len(features_files)) + "... Done.")
-            
+        

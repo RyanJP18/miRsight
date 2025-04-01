@@ -5,7 +5,7 @@ settings <- config$settings
 directories <- config$directories
 
 suppressMessages(library(dplyr))
-
+suppressMessages(library(parallel))
 
 
 # --- FUNCTIONS ---
@@ -14,20 +14,20 @@ create_new_frame <- dget("src/functions/create_new_frame.r")
 reverse_complement <- dget("src/functions/reverse_complement.r")
 
 # process and write out fold information to file
-store_folding_windows <- function(folding_windows, experiment_name) {
-  write.table(folding_windows$fold_window_lr, file.path(directories$windows_rnafold_lr, paste0(experiment_name, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
-  write.table(folding_windows$fold_window_rl, file.path(directories$windows_rnafold_rl, paste0(experiment_name, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
-  write.table(folding_windows$fold_window_ctr, file.path(directories$windows_rnafold_ctr, paste0(experiment_name, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+store_folding_windows <- function(folding_windows, filename) {
+    write.table(folding_windows$fold_window_lr, file.path(directories$windows_rnafold_lr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_rl, file.path(directories$windows_rnafold_rl, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_ctr, file.path(directories$windows_rnafold_ctr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-  # convert into a single column dataframe to better suit RNAcofold and then output to file
-  cofold_full_interleaved <- c(rbind(folding_windows$cofold_window_full, folding_windows$cofold_constraint_full))
-  write.table(cofold_full_interleaved, file.path(directories$windows_rnacofold_full, paste0(experiment_name, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    # convert into a single column dataframe to better suit RNAcofold and then output to file
+    cofold_full_interleaved <- c(rbind(folding_windows$cofold_window_full, folding_windows$cofold_constraint_full))
+    write.table(cofold_full_interleaved, file.path(directories$windows_rnacofold_full, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-  # same again but with seed only
-  cofold_seed_interleaved <- c(rbind(folding_windows$cofold_window_seed, folding_windows$cofold_constraint_seed))
-  write.table(cofold_seed_interleaved, file.path(directories$windows_rnacofold_seed, paste0(experiment_name, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    # same again but with seed only
+    cofold_seed_interleaved <- c(rbind(folding_windows$cofold_window_seed, folding_windows$cofold_constraint_seed))
+    write.table(cofold_seed_interleaved, file.path(directories$windows_rnacofold_seed, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-  write.table(folding_windows$rnaplfold_window, file.path(directories$windows_rnaplfold, paste0(experiment_name, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$rnaplfold_window, file.path(directories$windows_rnaplfold, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 }
 
 # find any 6mer or 6mer offset binding sites and count them up to determine their abundance values, also check the cds
@@ -100,55 +100,65 @@ extract_folding_windows <- function(expanded_binding_sites, utrs, mirna_sequence
     return(folding_windows)
 }
 
+process_mirna <- function(i) {
 
-
-# --- ENTRY POINT ---
-
-mirna_sequences <- read.table(file.path(directories$annotations, "mirna_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-
-
-annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-mane <- read.table(file.path(directories$annotations, "mane.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-utrs <- read.table(file.path(directories$annotations, "utr_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-# apply chromosome filter and also ensure we have annotations for the transcripts
-annotations <- annotations[annotations$chromosome_name %in% strsplit(settings$chromosome_filter, ",")[[1]], ]
-annotations <- annotations[annotations$ensembl_transcript_id_version %in% mane$ensembl_transcript_id_version, ]
-utrs <- utrs[utrs$ensembl_transcript_id_version %in% annotations$ensembl_transcript_id_version, ]
-# filter to only transcripts where we have utr sequence annotations
-utrs <- utrs[utrs$X3utr != "Sequence unavailable", ]
-utrs_all <- utrs
-
-
-folding_window_size <- as.numeric(settings$folding_window_size)
-rnaplfold_window_size <- as.numeric(settings$rnaplfold_window_size)
-half_rnapl_window_size <- rnaplfold_window_size * 0.5
-
-experiment_files <- dir(directories$bindings, pattern = ".tsv")
-experiment_files <- head(experiment_files, length(experiment_files) - 1)
-mirna_ids <- gsub("*.tsv", "", experiment_files)
-for (i in seq_len(length(experiment_files))) {
-    cat(paste0("Window extraction ", i, "/", length(experiment_files), "... "))
-
-    experiment_filename <- experiment_files[i]
-    mirna_id <- mirna_ids[i]
-    window_path <- file.path(directories$windows, experiment_filename)
-
-    if (as.logical(settings$use_caching) && file.exists(window_path)) {
-        cat("Loaded from cache.\n")
+    if (as.logical(settings$use_caching) && file.exists(file.path(directories$windows, binding_site_files[i]))) {
+        message(paste0("Window extraction ", i, "/", n, " - loaded from cache."))
     } else {
-        raw_binding_sites <- read.table(file.path(directories$bindings_raw, experiment_filename), sep = "\t", header = TRUE)
-        expanded_binding_sites <- read.table(file.path(directories$bindings, experiment_filename), sep = "\t", header = TRUE)
+        binding_site_filename <- binding_site_files[i]
+        mirna_id <- mirna_ids[i]
+        output_path <- file.path(directories$windows, binding_site_files[i])
+        
+        raw_binding_sites <- read.table(file.path(directories$bindings_raw, binding_site_filename), sep = "\t", header = TRUE)
+        expanded_binding_sites <- read.table(file.path(directories$bindings, binding_site_filename), sep = "\t", header = TRUE)
 
-        utrs <- as.data.frame(lapply(utrs_all, rep, raw_binding_sites$site_abundance_6mer))
+        utrs <- utrs[rep(1:nrow(raw_binding_sites), raw_binding_sites$site_abundance_6mer), ]
 
         mirna_sequence <- mirna_sequences[mirna_sequences$mirna_id == mirna_id, ]$mirna_sequence
 
         folding_windows <- extract_folding_windows(expanded_binding_sites, utrs, mirna_sequence)
 
-        write.table(folding_windows, window_path, quote = FALSE, sep = "\t", row.names = FALSE)
+        write.table(folding_windows, output_path, quote = FALSE, sep = "\t", row.names = FALSE)
 
-        store_folding_windows(folding_windows, gsub("*.tsv", "", experiment_filename))
+        store_folding_windows(folding_windows, gsub("*.tsv", "", binding_site_filename))
 
-        cat("Done.\n")
+        message("Window extraction ", i, "/", n, " - done.")
     }
 }
+
+
+# --- ENTRY POINT ---
+
+mirna_sequences <- read.table(file.path(directories$annotations, "mirna_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+if (settings$mirna_id_filter != "") {
+    mirna_sequences <- mirna_sequences[mirna_sequences$mirna_id %in% strsplit(settings$mirna_id_filter, ",")[[1]], ]
+}
+
+annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+mane <- read.table(file.path(directories$annotations, "mane.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+utrs <- read.table(file.path(directories$annotations, "utr_sequences.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+
+# apply chromosome filter
+if (settings$chromosome_filter != "") {
+    annotations <- annotations[annotations$chromosome_name %in% strsplit(settings$chromosome_filter, ",")[[1]], ]
+}
+
+# filter to only transcripts where we have utr sequence annotations
+annotations <- annotations[annotations$ensembl_transcript_id_version %in% mane$ensembl_transcript_id_version, ]
+utrs <- utrs[utrs$ensembl_transcript_id_version %in% annotations$ensembl_transcript_id_version, ]
+utrs <- utrs[utrs$X3utr != "Sequence unavailable", ]
+utrs_all <- utrs
+
+folding_window_size <- as.numeric(settings$folding_window_size)
+rnaplfold_window_size <- as.numeric(settings$rnaplfold_window_size)
+half_rnapl_window_size <- rnaplfold_window_size * 0.5
+
+binding_site_files <- dir(directories$bindings, pattern = ".tsv")
+binding_site_files <- head(binding_site_files, length(binding_site_files) - 1) # drop the last file as its a summary file
+mirna_ids <- gsub("*.tsv", "", binding_site_files)
+
+n <- length(binding_site_files)
+max_cores <- as.numeric(settings$max_cores)
+cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
+
+result <- mclapply(1:n, process_mirna, mc.cores = cores)

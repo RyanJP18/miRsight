@@ -1,113 +1,82 @@
-import subprocess
 import os
+import subprocess
+import multiprocessing
+import logging
 from pathlib import Path
+from multiprocessing import Pool
 
 class RNAFolder:
 
-    def run_rnafold(self, settings, directories):
-        print("RNAfolds 1/3...")
-        for experiment_filename in os.listdir(directories["windows_rnafold_lr"]):
-            experiment_path = Path(directories["windows_rnafold_lr"], experiment_filename)
-            with open(experiment_path) as experiment_file:
-                input_file = str(Path(directories["windows_rnafold_lr"], experiment_filename))
-                output_file = str(Path(directories["folds_rnafold_lr"], experiment_path.stem))
+    def run_rnafold(self, input_dir, output_dir, step):
+        window_count = len(os.listdir(input_dir))
+        i = 0
 
-                if (eval(settings["use_caching"]) and Path(output_file + '.csv').is_file()):
-                    print("RNAfold 1/3 " + experiment_path.stem + " already cached, moving to next...")
-                else: 
-                    exit_code = subprocess.call("RNAfold --noPS '" + input_file + "' >> '" + output_file + ".csv'", shell = True)
-                    if (exit_code > 0):
-                        print("An error occurred running RNAfold for " + experiment_filename)
-                        continue
-        print("Done.\n")
+        for window_filename in os.listdir(input_dir):
+            i += 1
 
-        print("RNAfolds 2/3...")
-        for experiment_filename in os.listdir(directories["windows_rnafold_rl"]):
-            experiment_path = Path(directories["windows_rnafold_rl"], experiment_filename)
-            with open(experiment_path) as experiment_file:
-                input_file = str(Path(directories["windows_rnafold_rl"], experiment_filename))
-                output_file = str(Path(directories["folds_rnafold_rl"], experiment_path.stem))
+            input_path = Path(input_dir, window_filename)
+            output_path = Path(output_dir, input_path.stem + '.csv')
 
-                if (eval(settings["use_caching"]) and Path(output_file + '.csv').is_file()):
-                    print("RNAfold 2/3 " + experiment_path.stem + " already cached, moving to next...")
-                else: 
-                    exit_code = subprocess.call("RNAfold --noPS '" + input_file + "' >> '" + output_file + ".csv'", shell = True)
-                    if (exit_code > 0):
-                        print("An error occurred running RNAfold for " + experiment_filename)
-                        continue
-        print("Done.\n")
-
-        print("RNAfolds 3/3...")
-        for experiment_filename in os.listdir(directories["windows_rnafold_ctr"]):
-            experiment_path = Path(directories["windows_rnafold_ctr"], experiment_filename)
-            with open(experiment_path) as experiment_file:
-                input_file = str(Path(directories["windows_rnafold_ctr"], experiment_filename))
-                output_file = str(Path(directories["folds_rnafold_ctr"], experiment_path.stem))
-
-                if (eval(settings["use_caching"]) and Path(output_file + '.csv').is_file()):
-                    print("RNAfold 3/3 " + experiment_path.stem + " already cached, moving to next...")
-                else: 
-                    exit_code = subprocess.call("RNAfold --noPS '" + input_file + "' >> '" + output_file + ".csv'", shell = True)
-                    if (exit_code > 0):
-                        print("An error occurred running RNAfold for " + experiment_filename)
-                        continue
-        print("Done.\n")
-
-    def run_rnacofold(self, settings, directories):
-        print("RNAcofolds 1/2...")
-        for experiment_filename in os.listdir(directories["windows_rnacofold_full"]):
-            experiment_path = Path(directories["windows_rnacofold_full"], experiment_filename)
-            with open(experiment_path) as experiment_file:
-                input_file = str(Path(directories["windows_rnacofold_full"], experiment_filename))
-                output_file = str(Path(directories["folds_rnacofold_full"], experiment_path.stem))
-                
-                if (eval(settings["use_caching"]) and Path(output_file + '.csv').is_file()):
-                    print("RNAcofold 1/2 " + experiment_path.stem + " already cached, moving to next...")
-                else: 
-                    exit_code = subprocess.call("RNAcofold -C --noPS --output-format='D' '" + input_file + "' >> '" + output_file + ".csv'", shell = True)
-                    if (exit_code > 0):
-                        print("An error occurred running RNAcofold for " + experiment_filename)
-                        continue
-        print("Done.\n")
-
-        print("RNAcofolds 2/2...")
-        for experiment_filename in os.listdir(directories["windows_rnacofold_seed"]):
-            experiment_path = Path(directories["windows_rnacofold_seed"], experiment_filename)
-            with open(experiment_path) as experiment_file:
-                input_file = str(Path(directories["windows_rnacofold_seed"], experiment_filename))
-                output_file = str(Path(directories["folds_rnacofold_seed"], experiment_path.stem))
-
-                if (eval(settings["use_caching"]) and Path(output_file + '.csv').is_file()):
-                    print("RNAcofold 2/2 " + experiment_path.stem + " already cached, moving to next...")
-                else: 
-                    exit_code = subprocess.call("RNAcofold -C --noPS --output-format='D' '" + input_file + "' >> '" + output_file + ".csv'", shell = True)
-                    if (exit_code > 0):
-                        print("An error occurred running RNAcofold for " + experiment_filename)
-                        continue
-        print("Done.\n")
-
-    def run_rnaplfold(self, settings, directories):
-        print("RNAplfolds...")
-        for experiment_filename in os.listdir(directories["windows_rnaplfold"]):
-            output_path = Path(directories["folds_rnaplfold"], Path(experiment_filename).stem)
-            output_path.mkdir(parents = True, exist_ok = True)
-            experiment_path = Path(directories["windows_rnaplfold"], experiment_filename)
-
-            if (eval(settings["use_caching"]) and Path(directories["folds_rnaplfold"], Path(experiment_filename).stem, "sequence_0001_basepairs").is_file()):
-                print("RNAplfold " + experiment_filename + " already cached, moving to next...")
+            if self.use_caching and output_path.is_file():
+                print(f"Folding part {step}/6 - {i}/{window_count} - loaded from cache.")
             else: 
-                with open(experiment_path) as experiment_file:
-                    input_file = str(Path(directories["windows_rnaplfold"], experiment_filename))
-                    exit_code = subprocess.call("RNAplfold -L 40 -W 80 -u 14 --auto-id -o < '" + input_file + "'", shell = True)
-                    if (exit_code > 0):
-                        print("An error occurred running RNAplfold for " + experiment_filename)
-                        continue
-                    else:
-                        subprocess.call("mv *_lunp '" + str(output_path) + "'", shell = True)
-                        subprocess.call("mv *_basepairs '" + str(output_path) + "'", shell = True)
-        print("Done.\n")
+                exit_code = subprocess.call(f"RNAfold --noPS --jobs={self.cores} {str(input_path)} >> {str(output_path)}", shell = True)
+                if exit_code == 0:
+                    print(f"Folding part {step}/6 - {i}/{window_count} - done.")
+                else:
+                    print("An error occurred running RNAfold for " + input_path.stem)
+
+    def run_rnacofold(self, input_dir, output_dir, step):
+        window_count = len(os.listdir(input_dir))
+        i = 0
+
+        for window_filename in os.listdir(input_dir):
+            i += 1
+
+            input_path = Path(input_dir, window_filename)
+            output_path = Path(output_dir, input_path.stem + '.csv')
+                
+            if self.use_caching and output_path.is_file():
+                print(f"Folding part {step}/6 - {i}/{window_count} - loaded from cache.")
+            else: 
+                exit_code = subprocess.call(f"RNAcofold --jobs={self.cores} -C --noPS --output-format=D {str(input_path)} >> {str(output_path)}", shell = True)
+                if exit_code == 0:
+                    print(f"Folding part {step}/6 - {i}/{window_count} - done.")
+                else:
+                    print("An error occurred running RNAcofold for " + input_path.stem)
+        
+    def run_rnaplfold(self, args):
+        input_dir, output_dir, window_filename, index, window_count = args
+
+        output_path = Path(output_dir, Path(window_filename).stem)
+
+        if self.use_caching and Path(output_path, "sequence_0001_lunp").is_file():
+            print(f"Folding part 6/6 - {index + 1}/{window_count} - loaded from cache.")
+            return
+            
+        output_path.mkdir(parents = True, exist_ok = True)
+        input_path = Path("..", "..", "..", "..", input_dir, window_filename)
+
+        exit_code = subprocess.call(f"RNAplfold -L 40 -W 80 -u 14 --auto-id -o < {str(input_path)}", cwd=output_path, shell = True, stderr=subprocess.DEVNULL)
+    
+        if exit_code == 0:
+            print(f"Folding part 6/6 - {index + 1}/{window_count} - done.")
+            subprocess.call("rm -f *_basepairs", cwd=output_path, shell=True)
+        else:
+            print("An error occurred running RNAplfold for " + input_path.stem)
 
     def __init__(self, settings, directories):
-        self.run_rnafold(settings, directories)
-        self.run_rnacofold(settings, directories)
-        self.run_rnaplfold(settings, directories)
+        self.use_caching = eval(settings["use_caching"])
+        max_cores = int(settings['max_cores'])
+        self.cores = max_cores if max_cores != -1 else multiprocessing.cpu_count() - 1
+
+        self.run_rnafold(directories["windows_rnafold_lr"], directories["folds_rnafold_lr"], 1)
+        self.run_rnafold(directories["windows_rnafold_rl"], directories["folds_rnafold_rl"], 2)
+        self.run_rnafold(directories["windows_rnafold_ctr"], directories["folds_rnafold_ctr"], 3)
+        self.run_rnacofold(directories["windows_rnacofold_full"], directories["folds_rnacofold_full"], 4)
+        self.run_rnacofold(directories["windows_rnacofold_seed"], directories["folds_rnacofold_seed"], 5)
+        
+        with Pool(processes=self.cores) as pool:
+            window_files = os.listdir(directories["windows_rnaplfold"])
+            window_count = len(window_files)
+            pool.map(self.run_rnaplfold, [(directories["windows_rnaplfold"], directories["folds_rnaplfold"], window_filename, index, window_count) for (index, window_filename) in enumerate(window_files)])

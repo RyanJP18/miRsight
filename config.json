@@ -2,13 +2,23 @@
     "settings": {
         "ensembl_release": "101",
 
-        "use_caching": "True",
+        "use_precompiled_conservation": "True",
+        "use_precompiled_shape": "True",
 
-	    "chromosome_filter": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y",
+        "use_caching": "True",
+        "max_cores": "-1",
+
+        "mirna_id_filter": "",
+	    
+        "ensembl_transcript_id_filter": "",
+        "ensembl_gene_id_filter": "",
+        "external_gene_id_filter": "",
+        
 
         "ignore_second_struct_bind": "True",
         "folding_window_size": "30",
-        "rnaplfold_window_size": "72"
+        "rnaplfold_window_size": "72",
+	    "chromosome_filter": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y"
     },
     
     "directories": {
@@ -23,11 +33,10 @@
         "folds": "output/05-folds",
         "features": "output/06-features",
         "features_conservation": "output/07-features-conservation",
-        "features_cons_shape": "output/08-features-cons-shape",
-        "features_full_imputed": "output/09-features-full-imputed",
-        "ml": "output/10-machine-learning",
-        
-        "experiment_infos": "output/00-preload-data/experiment-infos",
+        "parsed_shape": "output/08-parsed-shape",
+        "features_cons_shape": "output/09-features-cons-shape",
+        "features_full_imputed": "output/10-features-full-imputed",
+        "machine_learning": "output/11-target-predictions",
 
         "bindings_raw": "output/03-bindings/raw",
 
