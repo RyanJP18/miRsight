@@ -58,9 +58,7 @@ If you use this tool, please cite: TBD.
        - `scikit-learn`
 2. Download [miRsight](https://github.com/RyanJP18/miRsight/releases)
 3. Open a terminal and `cd path/to/miRsight`
-4. run `tar -zxvf precompiled_conservation_data.tar.gz` and ensure `output/02-conservation` is populated as a result
-5. run `tar -zxvf precompiled_shape_data.tar.gz` and ensure the `shape` directory is populated as a result
-6. Run `python main.py`
+4. Run `python main.py`
 
 # Configuration
 Before running miRsight, review the `settings` in `config.json` and, in particular, consider applying an miRNA filter to speed up computation.
