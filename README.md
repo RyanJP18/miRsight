@@ -66,7 +66,7 @@ Before running miRsight, review the `settings` in `config.json` and, in particul
 If using the automatic Docker setup, you must rebuild the image after making changes to `config.json`. The image will rebuild much faster than the first time due to caching.
 
 ### Using Transcript, Gene and miRNA filters
-- One or more comma-separated filters can be provided for:
+- One or more comma-separated filters can be provided in `config.json` for:
     - `mirna_id` e.g. `"hsa-miR-129-5p,hsa-miR-30c-5p"`
     - `ensembl_transcript_id` e.g. `"ENST00000000233,ENST00000000412,ENST00000000442"`
     - `ensembl_gene_id` e.g. `"ENSG00000173153,ENSG00000001036"`
