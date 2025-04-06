@@ -3,6 +3,7 @@ suppressMessages(library(jsonlite))
 config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
+cores <- as.numeric(args[2])
 
 suppressMessages(library(dplyr))
 suppressMessages(library(parallel))
@@ -40,7 +41,7 @@ extract_folding_windows <- function(expanded_binding_sites, utrs, mirna_sequence
         "rnaplfold_window", "rnaplfold_6mer_pos"),
         NULL, nrow(utrs))
     folding_windows$ensembl_transcript_id_version <- utrs$ensembl_transcript_id_version
-
+    
     # find the current miRNA sequence, search for its 6mer site and RC it to get the 6mer target site
     site_6mer <- substr(mirna_sequence, start = 2, stop = 7) # miRNA is fetched from 5` -> 3`
     target_6mer <- reverse_complement(site_6mer)
@@ -117,11 +118,11 @@ process_mirna <- function(i) {
         mirna_sequence <- mirna_sequences[mirna_sequences$mirna_id == mirna_id, ]$mirna_sequence
 
         folding_windows <- extract_folding_windows(expanded_binding_sites, utrs, mirna_sequence)
-
+        
         write.table(folding_windows, output_path, quote = FALSE, sep = "\t", row.names = FALSE)
-
+        
         store_folding_windows(folding_windows, gsub("*.tsv", "", binding_site_filename))
-
+        
         message("Window extraction ", i, "/", n, " - done.")
     }
 }
@@ -155,10 +156,10 @@ half_rnapl_window_size <- rnaplfold_window_size * 0.5
 
 binding_site_files <- dir(directories$bindings, pattern = ".tsv")
 binding_site_files <- head(binding_site_files, length(binding_site_files) - 1) # drop the last file as its a summary file
+if (settings$mirna_id_filter != "") {
+    binding_site_files <- binding_site_files[binding_site_files %in% paste0(strsplit(settings$mirna_id_filter, ",")[[1]], ".tsv")]
+}
 mirna_ids <- gsub("*.tsv", "", binding_site_files)
-
 n <- length(binding_site_files)
-max_cores <- as.numeric(settings$max_cores)
-cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
 
 result <- mclapply(1:n, process_mirna, mc.cores = cores)

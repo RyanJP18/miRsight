@@ -3,6 +3,7 @@ suppressMessages(library(jsonlite))
 config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
+cores <- as.numeric(args[2])
 
 suppressMessages(library(parallel))
 
@@ -619,10 +620,10 @@ process_mirna <- function(i) {
 annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE)
 
 window_files <- dir(directories$windows, pattern = ".tsv")
+if (settings$mirna_id_filter != "") {
+    window_files <- window_files[window_files %in% paste0(strsplit(settings$mirna_id_filter, ",")[[1]], ".tsv")]
+}
 mirna_ids <- gsub("*.tsv", "", window_files)
-
 n <- length(window_files)
-max_cores <- as.numeric(settings$max_cores)
-cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
 
 result <- mclapply(1:n, process_mirna, mc.cores = cores)

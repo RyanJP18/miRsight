@@ -3,6 +3,7 @@ suppressMessages(library(jsonlite))
 config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
+cores <- as.numeric(args[2])
 
 suppressMessages(library(mice))
 suppressMessages(library(parallel))
@@ -60,9 +61,9 @@ process_mirna <- function(i) {
 # --- ENTRY POINT ---
 
 feature_files <- dir(directories$features_cons_shape, pattern = ".tsv")
-
+if (settings$mirna_id_filter != "") {
+    feature_files <- feature_files[feature_files %in% paste0(strsplit(settings$mirna_id_filter, ",")[[1]], ".tsv")]
+}
 n <- length(feature_files)
-max_cores <- as.numeric(settings$max_cores)
-cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
 
 result <- mclapply(1:n, process_mirna, mc.cores = cores)

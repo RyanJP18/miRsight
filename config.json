@@ -1,29 +1,29 @@
 {
     "settings": {
-        "ensembl_release": "101",
-
-        "use_precompiled_conservation": "True",
-        "use_precompiled_shape": "True",
-
         "use_caching": "True",
-        "max_cores": "-1",
+        "max_cores": "1",
 
-        "mirna_id_filter": "",
-	    
+        "mirna_id_filter": "hsa-let-7a-3p,hsa-miR-21-3p,hsa-miR-28-3p,hsa-miR-133b,hsa-miR-7150,hsa-miR-124-3p",
         "ensembl_transcript_id_filter": "",
         "ensembl_gene_id_filter": "",
         "external_gene_id_filter": "",
-        
+
+        "ensembl_release": "101",
+        "use_precompiled_conservation": "True",
+        "use_precompiled_shape": "True",
+
 
         "ignore_second_struct_bind": "True",
         "folding_window_size": "30",
         "rnaplfold_window_size": "72",
 	    "chromosome_filter": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y"
     },
+
     
     "directories": {
         "shape_data": "shape",
         "model_data": "model",
+
 
         "preload_data": "output/00-preload-data",
 	    "annotations": "output/01-annotations",
@@ -38,6 +38,7 @@
         "features_full_imputed": "output/10-features-full-imputed",
         "machine_learning": "output/11-target-predictions",
 
+        
         "bindings_raw": "output/03-bindings/raw",
 
         "windows_rnafold_lr": "output/04-windows/rnafold-lr",

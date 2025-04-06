@@ -3,6 +3,7 @@ suppressMessages(library(jsonlite))
 config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
+cores <- as.numeric(args[2])
 
 suppressMessages(library(dplyr))
 suppressMessages(library(parallel))
@@ -146,12 +147,9 @@ mirna_sequences <- read.table(file.path(directories$annotations, "mirna_sequence
 if (settings$mirna_id_filter != "") {
     mirna_sequences <- mirna_sequences[mirna_sequences$mirna_id %in% strsplit(settings$mirna_id_filter, ",")[[1]], ]
 }
+n <- nrow(mirna_sequences)
 
 target_sites <- create_new_frame(c("mirna_id", "site_6mer", "target_6mer", "site_6off", "target_6off", "site_7mer_a1", "target_7mer_a1", "site_7mer_m8",
     "target_7mer_m8", "site_8mer", "target_8mer"), NULL, nrow(mirna_sequences))
-
-n <- nrow(mirna_sequences)
-max_cores <- as.numeric(settings$max_cores)
-cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
 
 result <- mclapply(1:n, process_mirna, mc.cores = cores)

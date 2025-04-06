@@ -1,3 +1,8 @@
+#
+# Use a GenomicScores conservation track to produce a genome-wide set of base scores that are easy to extract and store. 
+# In cases where a track library does not exist, AnnotationHub is used to download necessary data and build a track package.
+#
+
 args <- commandArgs(trailingOnly = TRUE)
 suppressMessages(library(jsonlite))
 config <- jsonlite::fromJSON(args[1])
