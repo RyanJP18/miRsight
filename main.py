@@ -99,7 +99,18 @@ def main(paths, config):
     print("04/11 Complete.\n")
 
     print("05/11 Folding sequences using ViennaRNA...")
-    RNAFolder(settings, directories, cores)
+    rna_folder = RNAFolder(settings, directories, cores, 6)
+
+    rna_folder.run_rnafold_batch("windows_rnafold_lr", "folds_rnafold_lr")
+    rna_folder.run_rnafold_batch("windows_rnafold_rl", "folds_rnafold_rl")
+    rna_folder.run_rnafold_batch("windows_rnafold_ctr", "folds_rnafold_ctr")
+
+    rna_folder.run_rnacofold_batch(
+        "windows_rnacofold_full", "folds_rnacofold_full")
+    rna_folder.run_rnacofold_batch(
+        "windows_rnacofold_seed", "folds_rnacofold_seed")
+
+    rna_folder.run_rnaplfold_batch()
     print("05/11 Complete.\n")
 
     print("06/11 Extracting features for each miRNA...")
@@ -108,7 +119,8 @@ def main(paths, config):
     print("06/11 Complete.\n")
 
     print("07/11 Parsing conservation scores for each miRNA...")
-    ConservationParser(settings, directories, cores)
+    conservation_parser = ConservationParser(settings, directories, cores)
+    conservation_parser.parse_batch()
     print("07/11 Complete.\n")
 
     print("08/11 Parsing shape reactivity values for each miRNA...")

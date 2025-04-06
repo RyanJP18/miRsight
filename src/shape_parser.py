@@ -78,8 +78,8 @@ class ShapeParser:
         # note: uses any shape files present in the shape folder and takes and average value between them
         for shape_filename in os.listdir(directories["shape_data"]):
             shape_source = Path(shape_filename).stem.lower()
-            features[shape_source + "_seed"] = 'NA'
-            features[shape_source + "_sup"] = 'NA'
+            features[shape_source + "_seed"] = "NA"
+            features[shape_source + "_sup"] = "NA"
 
             shape_cols.append(shape_source + "_seed")
             shape_cols.append(shape_source + "_sup")
@@ -89,9 +89,9 @@ class ShapeParser:
 
                 for shape in shapes:
                     # get the id of the current shape transcript without the version
-                    shape_ts_id = shape.pop(0).split('.')[0]
-                    transcript_ids = features['ensembl_transcript_id_version'].str.split(
-                        '.').str[0]  # get the ids without the version
+                    shape_ts_id = shape.pop(0).split(".")[0]
+                    transcript_ids = features["ensembl_transcript_id_version"].str.split(
+                        ".").str[0]  # get the ids without the version
                     self.parse_shape(shape_ts_id, features,
                                      transcript_ids, shape, shape_source)
 

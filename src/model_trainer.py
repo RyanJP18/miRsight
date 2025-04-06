@@ -15,14 +15,14 @@ class ModelTrainer:
         self.unimputed_input_path = unimputed_input_path
         self.output_path = output_path
 
-        with open(Path(model_path).joinpath('scaler.sav'), 'rb') as file:
+        with open(Path(model_path).joinpath("scaler.sav"), "rb") as file:
             self.scaler = pickle.load(file)
 
-        with open(Path(model_path).joinpath('rf.sav'), 'rb') as file:
+        with open(Path(model_path).joinpath("rf.sav"), "rb") as file:
             self.gs = pickle.load(file)
             self.model = self.gs.best_estimator_
 
-            if hasattr(self.model, 'n_jobs'):
+            if hasattr(self.model, "n_jobs"):
                 self.model.set_params(n_jobs=int(cores))
 
         Path(self.output_path).mkdir(parents=True, exist_ok=True)
@@ -45,22 +45,22 @@ class ModelTrainer:
 
         # categorical data handling using labelencoder
         labelencoder = LabelEncoder()
-        dataset['seed_type'] = labelencoder.fit_transform(
-            dataset['seed_binding_type'])
-        dataset['nt_id_at_mirna_1'] = labelencoder.fit_transform(
-            dataset['mirna_1'])
-        dataset['nt_id_at_mirna_8'] = labelencoder.fit_transform(
-            dataset['mirna_8'])
-        dataset['nt_id_at_mrna_8'] = labelencoder.fit_transform(
-            dataset['mrna_8'])
+        dataset["seed_type"] = labelencoder.fit_transform(
+            dataset["seed_binding_type"])
+        dataset["nt_id_at_mirna_1"] = labelencoder.fit_transform(
+            dataset["mirna_1"])
+        dataset["nt_id_at_mirna_8"] = labelencoder.fit_transform(
+            dataset["mirna_8"])
+        dataset["nt_id_at_mrna_8"] = labelencoder.fit_transform(
+            dataset["mrna_8"])
         dataset = dataset.drop(
             columns=["seed_binding_type", "mirna_1", "mirna_8", "mrna_8"])
 
         # note this is now done in imputation step
-        # dataset['X3_utr_length'] = np.log10(dataset['X3_utr_length'])
-        # dataset['cds_length'] = np.log10(dataset['cds_length'])
-        # dataset['dist_closest_utr_end'] = np.log10(dataset['dist_closest_utr_end'])
-        # dataset['binding_site_pos'] = np.log10(dataset['binding_site_pos'])
+        # dataset["X3_utr_length"] = np.log10(dataset["X3_utr_length"])
+        # dataset["cds_length"] = np.log10(dataset["cds_length"])
+        # dataset["dist_closest_utr_end"] = np.log10(dataset["dist_closest_utr_end"])
+        # dataset["binding_site_pos"] = np.log10(dataset["binding_site_pos"])
         # note this is now done in imputation step
 
         dataset = dataset.drop(columns=["binding_site_pos", "site_abundance_7a1", "site_abundance_7m8", "site_abundance_7a1cds", "site_abundance_7m8cds",
@@ -72,9 +72,9 @@ class ModelTrainer:
         """ Produce predictions for the given miRNA using the pretrained model and scalars """
 
         raw_test = pd.read_csv(Path.joinpath(Path(
-            self.input_path, mirna + ".tsv")), header="infer", na_values='?', sep="\t", index_col=0)
+            self.input_path, mirna + ".tsv")), header="infer", na_values="?", sep="\t", index_col=0)
         raw_unimputed_test = pd.read_csv(Path.joinpath(Path(
-            self.unimputed_input_path, mirna + ".tsv")), header="infer", na_values='?', sep="\t", index_col=0)
+            self.unimputed_input_path, mirna + ".tsv")), header="infer", na_values="?", sep="\t", index_col=0)
 
         # manipulate and scale test set features
         test = self.prep_features(raw_test)
@@ -87,20 +87,20 @@ class ModelTrainer:
 
         # process into a results table
         results = pd.DataFrame(test.index)
-        results['mirna_id'] = mirna
+        results["mirna_id"] = mirna
 
         raw_test.reset_index(drop=True, inplace=True)
         raw_unimputed_test.reset_index(drop=True, inplace=True)
         results.reset_index(drop=True, inplace=True)
 
-        results['score'] = confidence
+        results["score"] = confidence
 
         # add back in some annotation data
-        seeds = raw_test['seed_binding_type']
-        results['seed'] = seeds
+        seeds = raw_test["seed_binding_type"]
+        results["seed"] = seeds
 
-        binding_pos = raw_unimputed_test['binding_site_pos']
-        results['binding_pos'] = binding_pos
+        binding_pos = raw_unimputed_test["binding_site_pos"]
+        results["binding_pos"] = binding_pos
 
         # anything above 0.5 confidence we consider to be a prediction
-        return results.loc[results['score'] >= 0.5]
+        return results.loc[results["score"] >= 0.5]

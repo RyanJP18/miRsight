@@ -19,12 +19,12 @@ class ShapeScorer:
 
         # get the total reactivity score for the provided columns
         for col in cols:
-            if shape[col] != 'NA':
+            if shape[col] != "NA":
                 available = available + 1
                 total = total + float(shape[col])
 
         # return the average- as NAs are common, try to salvage provided there is at least one value available, otherwise NA
-        return 'NA' if available == 0 else total / available
+        return "NA" if available == 0 else total / available
 
     def score_shape(self, args):
         """ Produce a seed and supplementary shape value for each binding using parsed shape reactivity values from each shape source """
