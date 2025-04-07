@@ -32,11 +32,13 @@ class ShapeScorer:
     def process_file_pair(self, features, parsed_shape):
         """ Compute the average across each shape column to determine our seed and supplementary average shape reactivity scores for each binding site """
 
-        for feature, shape in zip(features, parsed_shape):
+        # build up a new features frame which now contains shape data
+        features_with_shape = features.copy()
+        for feature, shape in zip(features_with_shape, parsed_shape):
             feature.append(self._compute_average(shape, self.shape_seed_cols))
             feature.append(self._compute_average(shape, self.shape_sup_cols))
 
-        return features
+        return features_with_shape
 
     def score_shape(self, args):
         """ Produce a seed and supplementary shape value for each binding using parsed shape reactivity values from each shape source """
@@ -60,13 +62,13 @@ class ShapeScorer:
             feature_headers.append("shape_seed")
             feature_headers.append("shape_sup")
 
-            features = self.process_file_pair(list(feature_reader), list(shape_reader))
+            features_with_shape = self.process_file_pair(list(feature_reader), list(shape_reader))
 
             # store original feature values, plus new shape values in a single table ready for ML
             with open(output_path, "w", encoding="utf-8", newline="") as outfile:
                 writer = csv.writer(outfile, delimiter="\t")
                 writer.writerow(feature_headers)
-                writer.writerows(features)
+                writer.writerows(features_with_shape)
 
             print(f"Shape scoring {str(file_index + 1)}/{str(file_count)} - done.")
 

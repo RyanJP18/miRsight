@@ -18,11 +18,11 @@ class ShapeParser:
     ShapeSource = namedtuple("ShapeSource", ["name", "rows"])
     ShapeRow = namedtuple("ShapeRow", ["transcript_id", "read_length", "scores"])
 
-    def _score_target(self, row_index, features, transcript, shape_row, shape_source):
-        utr_start = shape_row.read_length - transcript["X3_utr_length"]
+    def _score_target(self, target, shape_row):
+        utr_start = shape_row.read_length - target["X3_utr_length"]
         # note: pos is relative to the 6mer; it also counts wrong because python goes from 0 whereas R goes from 1
         # e.g. a match at pos 2 needs to be match_pos - 1 to give it an accessor of 1, or -2 to get the full 8 base seed
-        target_start = utr_start + transcript["binding_site_pos"] - 2
+        target_start = utr_start + target["binding_site_pos"] - 2
         target_end = target_start + 8
         # (note: double tested, doing a +1 skips a base)
         sup_start = target_end
@@ -34,30 +34,18 @@ class ShapeParser:
         shape_scores_seed = list(map(float, [raw_score.replace("NULL", "0") for raw_score in shape_scores_seed_raw]))
         shape_scores_sup = list(map(float, [raw_score.replace("NULL", "0") for raw_score in shape_scores_sup_raw]))
 
-        if len(shape_scores_seed) > 0:
-            features.at[row_index, shape_source.name + "_seed"] = np.mean(np.nan_to_num(shape_scores_seed))
+        seed_score = np.mean(np.nan_to_num(shape_scores_seed)) if len(shape_scores_seed) > 0 else "NA"
+        sup_score = np.mean(np.nan_to_num(shape_scores_sup)) if len(shape_scores_sup) > 0 else "NA"
 
-        if len(shape_scores_sup) > 0:
-            features.at[row_index, shape_source.name + "_sup"] = np.mean(np.nan_to_num(shape_scores_sup))
+        return seed_score, sup_score
 
-    def _parse_row(self, features, target_transcript_ids, shape_row, shape_source):
-        """ Walk a row of the shape reactivity values, recursively handling any instances of multiple target sites, by parsing scores for each """
+    def _populate_features_with_shape(self, features_with_shape, shape_source):
+        """ Parse each shape file for a given features file by walking each row, recursively parsing scores on any targets for which we have data """
 
-        transcript_matches = features.loc[target_transcript_ids == shape_row.transcript_id]
-        if len(transcript_matches) == 0:
-            return  # no target matches for this specific shape reactivity row
+        features_with_shape[shape_source.name + "_seed"] = "NA"
+        features_with_shape[shape_source.name + "_sup"] = "NA"
 
-        # for each transcript, get shape reactivity scores between specific bases (seed and supplementary portions)
-        for row_index, transcript in transcript_matches.iterrows():
-            self._score_target(row_index, features, transcript, shape_row, shape_source)
-
-    def parse_shape_source(self, features, shape_source):
-        """ Parse a shape reactivity score file for a given features file """
-
-        features[shape_source.name + "_seed"] = "NA"
-        features[shape_source.name + "_sup"] = "NA"
-
-        target_transcript_ids = features["ensembl_transcript_id_version"].str.split(".").str[0]  # get all target ids without the version number
+        target_transcript_ids = features_with_shape["ensembl_transcript_id_version"].str.split(".").str[0]  # get all target ids without the version number
 
         for row in shape_source.rows:
             # the first few cells are metadata, 2+ is shape reactivity scores
@@ -66,7 +54,18 @@ class ShapeParser:
             shape_scores = row[3:]
             shape_row = self.ShapeRow(shape_transcript_id, read_length, shape_scores)
 
-            self._parse_row(features, target_transcript_ids, shape_row, shape_source)
+            target_matches = features_with_shape.loc[target_transcript_ids == shape_row.transcript_id]
+            if len(target_matches) == 0:
+                continue  # no target matches for this specific shape reactivity row, move to next shape row
+
+            # for each target with a shape reactivity score, get the scores between specific bases (seed and supplementary portions)
+            for row_index, target in target_matches.iterrows():
+                seed_score, sup_score = self._score_target(target, shape_row)
+
+                features_with_shape.at[row_index, shape_source.name + "_seed"] = seed_score
+                features_with_shape.at[row_index, shape_source.name + "_sup"] = sup_score
+
+        return features_with_shape
 
     def parse_shape(self, args):
         """ Compute and store shape scores for each shape source by iterating each target row in a features file """
@@ -76,11 +75,12 @@ class ShapeParser:
         output_path = os.path.join(self.directories["parsed_shape"], features_filename)
 
         if self.use_caching and os.path.exists(output_path):
-            print(f"Shape parse {str(file_index + 1)}/{str(file_count)} - loaded from cache.")
+            print(f"Shape parsing {str(file_index + 1)}/{str(file_count)} - loaded from cache.")
             return
 
         features = pd.read_csv(os.path.join(self.directories["features_conservation"], features_filename), header="infer", na_values="?", sep="\t")
-        features = features[["ensembl_transcript_id_version", "X3_utr_length", "binding_site_pos"]]
+        features_with_shape = features.copy()
+        features_with_shape = features_with_shape[["ensembl_transcript_id_version", "X3_utr_length", "binding_site_pos"]]
 
         shape_cols = ["ensembl_transcript_id_version"]
 
@@ -92,12 +92,12 @@ class ShapeParser:
 
                 shape_cols.extend([shape_source.name + "_seed", shape_source.name + "_sup"])
 
-                self.parse_shape_source(features, shape_source)
+                self._populate_features_with_shape(features_with_shape, shape_source)
 
-        parsed_shape = features[shape_cols]
+        parsed_shape = features_with_shape[shape_cols]
         parsed_shape.to_csv(output_path, sep="\t", index=False)
 
-        print(f"Shape parse {str(file_index + 1)}/{str(file_count)} - done.")
+        print(f"Shape parsing {str(file_index + 1)}/{str(file_count)} - done.")
 
     def parse_batch(self):
         """ Parse shape reactivity values for a batch of features files """
