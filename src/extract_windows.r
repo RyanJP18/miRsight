@@ -15,33 +15,38 @@ create_new_frame <- dget("src/functions/create_new_frame.r")
 reverse_complement <- dget("src/functions/reverse_complement.r")
 
 # process and write out fold information to file
-store_folding_windows <- function(folding_windows, filename) {
-    write.table(folding_windows$fold_window_lr, file.path(directories$windows_rnafold_lr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
-    write.table(folding_windows$fold_window_rl, file.path(directories$windows_rnafold_rl, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
-    write.table(folding_windows$fold_window_ctr, file.path(directories$windows_rnafold_ctr, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+store_folding_windows <- function(folding_windows, name) {
+    filename <- paste0(name, ".txt")
+
+    write.table(folding_windows$fold_window_lr, file.path(directories$windows_rnafold_lr, filename), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_rl, file.path(directories$windows_rnafold_rl, filename), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$fold_window_ctr, file.path(directories$windows_rnafold_ctr, filename), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
     # convert into a single column dataframe to better suit RNAcofold and then output to file
     cofold_full_interleaved <- c(rbind(folding_windows$cofold_window_full, folding_windows$cofold_constraint_full))
-    write.table(cofold_full_interleaved, file.path(directories$windows_rnacofold_full, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(cofold_full_interleaved, file.path(directories$windows_rnacofold_full, filename), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
     # same again but with seed only
     cofold_seed_interleaved <- c(rbind(folding_windows$cofold_window_seed, folding_windows$cofold_constraint_seed))
-    write.table(cofold_seed_interleaved, file.path(directories$windows_rnacofold_seed, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(cofold_seed_interleaved, file.path(directories$windows_rnacofold_seed, filename), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 
-    write.table(folding_windows$rnaplfold_window, file.path(directories$windows_rnaplfold, paste0(filename, ".txt")), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
+    write.table(folding_windows$rnaplfold_window, file.path(directories$windows_rnaplfold, filename), sep = "", col.names = FALSE, row.names = FALSE, quote = FALSE)
 }
 
 # find any 6mer or 6mer offset binding sites and count them up to determine their abundance values, also check the cds
 extract_folding_windows <- function(expanded_binding_sites, utrs, mirna_sequence) {
     folding_windows <- create_new_frame(
-        c("ensembl_transcript_id_version",
-        "fold_window_lr", "fold_window_rl", "fold_window_ctr",
-        "cofold_window_full", "cofold_constraint_full",
-        "cofold_window_seed", "cofold_constraint_seed",
-        "rnaplfold_window", "rnaplfold_6mer_pos"),
-        NULL, nrow(utrs))
+        c(
+            "ensembl_transcript_id_version",
+            "fold_window_lr", "fold_window_rl", "fold_window_ctr",
+            "cofold_window_full", "cofold_constraint_full",
+            "cofold_window_seed", "cofold_constraint_seed",
+            "rnaplfold_window", "rnaplfold_6mer_pos"
+        ),
+        NULL, nrow(utrs)
+    )
     folding_windows$ensembl_transcript_id_version <- utrs$ensembl_transcript_id_version
-    
+
     # find the current miRNA sequence, search for its 6mer site and RC it to get the 6mer target site
     site_6mer <- substr(mirna_sequence, start = 2, stop = 7) # miRNA is fetched from 5` -> 3`
     target_6mer <- reverse_complement(site_6mer)
@@ -102,14 +107,13 @@ extract_folding_windows <- function(expanded_binding_sites, utrs, mirna_sequence
 }
 
 process_mirna <- function(i) {
-
     if (as.logical(settings$use_caching) && file.exists(file.path(directories$windows, binding_site_files[i]))) {
         message(paste0("Window extraction ", i, "/", n, " - loaded from cache."))
     } else {
         binding_site_filename <- binding_site_files[i]
         mirna_id <- mirna_ids[i]
         output_path <- file.path(directories$windows, binding_site_files[i])
-        
+
         raw_binding_sites <- read.table(file.path(directories$bindings_raw, binding_site_filename), sep = "\t", header = TRUE)
         expanded_binding_sites <- read.table(file.path(directories$bindings, binding_site_filename), sep = "\t", header = TRUE)
 
@@ -118,11 +122,11 @@ process_mirna <- function(i) {
         mirna_sequence <- mirna_sequences[mirna_sequences$mirna_id == mirna_id, ]$mirna_sequence
 
         folding_windows <- extract_folding_windows(expanded_binding_sites, utrs, mirna_sequence)
-        
+
         write.table(folding_windows, output_path, quote = FALSE, sep = "\t", row.names = FALSE)
-        
+
         store_folding_windows(folding_windows, gsub("*.tsv", "", binding_site_filename))
-        
+
         message("Window extraction ", i, "/", n, " - done.")
     }
 }

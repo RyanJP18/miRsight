@@ -19,7 +19,7 @@ determine_most_likely_folds <- function(rnafolds, rnafolds_lr, rnafolds_rl, rnaf
         mfe_lr <- as.numeric(as.character(paste0("-", gsub("^\\D+", "", gsub("[^0-9.-]", "", rnafolds_lr$rnafold_struct[i])))))
         mfe_rl <- as.numeric(as.character(paste0("-", gsub("^\\D+", "", gsub("[^0-9.-]", "", rnafolds_rl$rnafold_struct[i])))))
         mfe_ctr <- as.numeric(as.character(paste0("-", gsub("^\\D+", "", gsub("[^0-9.-]", "", rnafolds_ctr$rnafold_struct[i])))))
-        
+
         if (mfe_lr <= mfe_rl) {
             if (mfe_lr <= mfe_ctr) {
                 rnafolds[i, 2:4] <- c(substr(as.character(rnafolds_lr$rnafold_struct[i]), 1, nchar(as.character(rnafolds_lr$rnafold_struct[i])) - 9), mfe_lr, -1)
@@ -91,7 +91,7 @@ load_rnaplfolds <- function(mirna_id, folding_windows, seed_features) {
             rnaplfolds$rnaplfold_sup[i] <- NA
             next
         }
-        
+
         rnaplfolds_raw <- read.table(rnaplfold_file_path, sep = "\t", skip = 2)[-1]
 
         start_6mer <- folding_windows$rnaplfold_6mer_pos[i]
@@ -100,7 +100,7 @@ load_rnaplfolds <- function(mirna_id, folding_windows, seed_features) {
         base_20 <- base_9 + 11
 
         if (seed_features$seed_binding_type[i] == "7mer-a1" || seed_features$seed_binding_type[i] == "8mer") {
-            start_seed <- start_seed - 1 #7mer-a1 / 8mer starts at 1st base
+            start_seed <- start_seed - 1 # 7mer-a1 / 8mer starts at 1st base
         }
 
         seed_binding_count <- strtoi(seed_features$seed_binding_count[i])
@@ -129,9 +129,10 @@ is_wobble_paired_by_pos <- function(pos, seq) {
     base_b <- mrna_at(pos, seq)
     return(
         ((base_a == "U" && base_b == "G") || (base_a == "G" && base_b == "U")) ||
-        ((base_a == "A" && base_b == "G") || (base_a == "G" && base_b == "A")) ||
-        ((base_a == "U" && base_b == "C") || (base_a == "C" && base_b == "U")) ||
-        ((base_a == "A" && base_b == "C") || (base_a == "C" && base_b == "A")))
+            ((base_a == "A" && base_b == "G") || (base_a == "G" && base_b == "A")) ||
+            ((base_a == "U" && base_b == "C") || (base_a == "C" && base_b == "U")) ||
+            ((base_a == "A" && base_b == "C") || (base_a == "C" && base_b == "A"))
+    )
 }
 
 is_paired_by_pos <- function(pos, struct) {
@@ -144,14 +145,14 @@ is_perfect_paired_by_struct <- function(pos, struct, seq) {
 
 is_wobble_paired_by_base <- function(base_a, base_b) {
     return((base_a == "U" && base_b == "G") || (base_a == "G" && base_b == "U") ||
-           (base_a == "A" && base_b == "G") || (base_a == "G" && base_b == "A") ||
-           (base_a == "U" && base_b == "C") || (base_a == "C" && base_b == "U") ||
-           (base_a == "A" && base_b == "C") || (base_a == "C" && base_b == "A"))
+        (base_a == "A" && base_b == "G") || (base_a == "G" && base_b == "A") ||
+        (base_a == "U" && base_b == "C") || (base_a == "C" && base_b == "U") ||
+        (base_a == "A" && base_b == "C") || (base_a == "C" && base_b == "A"))
 }
 
 is_perfect_paired_by_base <- function(base_a, base_b) {
     return((base_a == "G" && base_b == "C") || (base_a == "C" && base_b == "G") ||
-           (base_a == "A" && base_b == "U") || (base_a == "U" && base_b == "A"))
+        (base_a == "A" && base_b == "U") || (base_a == "U" && base_b == "A"))
 }
 
 extract_seed_features <- function(current_transcript_id, seq, struct) {
@@ -183,7 +184,6 @@ extract_seed_features <- function(current_transcript_id, seq, struct) {
 }
 
 extract_single_base_features <- function(current_transcript_id, seq) {
-
     mirna_1 <- mirna_at(1, seq)
     mrna_1 <- mrna_at(1, seq)
     gu_1 <- (mirna_1 == "G" && mrna_1 == "U") || (mirna_1 == "U" && mrna_1 == "G")
@@ -217,9 +217,9 @@ determine_pairs <- function(struct) {
     base_idx <- 1
     while (base_idx < halfway) {
         if (struct[base_idx] == "(") { # if we have a binding, count it
-            mirna_bindings[base_idx] = base_idx
+            mirna_bindings[base_idx] <- base_idx
         } else if (as.logical(settings$ignore_second_struct_bind) && struct[base_idx] == ")") { # if we're discounting self binds and we find one, discount the last binding
-            mirna_bindings[max(which(mirna_bindings >= 1))] = 0
+            mirna_bindings[max(which(mirna_bindings >= 1))] <- 0
         }
 
         base_idx <- base_idx + 1
@@ -259,7 +259,7 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
 
     perfect_pair_count <- 0
     wobble_pair_count <- 0
-    any_pair_count <-0
+    any_pair_count <- 0
 
     longest_perfect_sequence <- 0
     longest_any_pair_sequence <- 0
@@ -267,7 +267,7 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
     curr_any_pair_sequence <- 0
     prev_mirna_index <- 0
     curr_any_sequence_start <- 0
-    longest_any_sequence_start <- 0 
+    longest_any_sequence_start <- 0
 
     perfect_pair_dist <- 0
     wobble_pair_dist <- 0
@@ -317,10 +317,10 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
             } else {
                 sup_pair_count <- sup_pair_count + 1
             }
-            
+
             if (curr_any_sequence_start == 0) {
                 curr_any_sequence_start <- mirna_base_index
-            } 
+            }
 
             if (perfect_pair_count > 1) {
                 perfect_pair_dist <- perfect_pair_dist + mirna_base_index - prev_mirna_index
@@ -340,7 +340,7 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
                 longest_any_pair_sequence <- curr_any_pair_sequence
                 longest_any_sequence_start <- curr_any_sequence_start
             }
-            
+
             if (first_base_pos == 0) {
                 first_base_pos <- mrna_base_index
             }
@@ -349,7 +349,7 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
         } else if (is_wobble_paired_by_base(mirna_base, mrna_base)) {
             wobble_pair_count <- wobble_pair_count + 1
             any_pair_count <- any_pair_count + 1
-            
+
             if (mirna_base_index < 9) {
                 seed_pair_count <- seed_pair_count + 1
             } else {
@@ -364,7 +364,7 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
             }
 
             curr_perfect_sequence <- 0
-            
+
             if (curr_any_sequence_start == 0) {
                 curr_any_sequence_start <- mirna_base_index
             }
@@ -374,7 +374,7 @@ extract_generic_window_features <- function(current_transcript_id, supplementary
                 longest_any_pair_sequence <- curr_any_pair_sequence
                 longest_any_sequence_start <- curr_any_sequence_start
             }
-            
+
             if (first_base_pos == 0) {
                 first_base_pos <- mrna_base_index
             }
@@ -424,7 +424,7 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
         au_content_sup <- au_content_sup / nchar(au_window_sup)
     }
 
-    weights <- c(1/3, 1/4, 1/5, 1/6, 1/7, 1/8, 1/9, 1/10, 1/11, 1/12, 1/13, 1/14, 1/15, 1/16, 1/17, 1/18, 1/19, 1/20, 1/21, 1/22, 1/23, 1/24, 1/25, 1/26, 1/27, 1/28, 1/29, 1/30, 1/31, 1/32)
+    weights <- c(1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 7, 1 / 8, 1 / 9, 1 / 10, 1 / 11, 1 / 12, 1 / 13, 1 / 14, 1 / 15, 1 / 16, 1 / 17, 1 / 18, 1 / 19, 1 / 20, 1 / 21, 1 / 22, 1 / 23, 1 / 24, 1 / 25, 1 / 26, 1 / 27, 1 / 28, 1 / 29, 1 / 30, 1 / 31, 1 / 32)
     dist_scalars <- weights / sum(weights)
 
     au_content_5_weighted <- 0
@@ -433,7 +433,7 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
         if (idx == -1) {
             # handling for very short strings (only one base in the rl window)
             if (au_window_rl == "A" || au_window_rl == "U") {
-                au_content_5_weighted <- 1/3
+                au_content_5_weighted <- 1 / 3
             } else {
                 au_content_5_weighted <- 0
             }
@@ -442,12 +442,11 @@ extract_au_content_features <- function(current_transcript_id, window_lr, window
 
         au_content_5_weighted <- au_content_5_weighted + dist_scalars[idx]
     }
-    
+
     return(c(current_transcript_id, au_content_3, au_content_sup, au_content_5_weighted))
 }
 
 process_mirna <- function(i) {
-    
     if (as.logical(settings$use_caching) && file.exists(file.path(directories$features, window_files[i]))) {
         message("Feature extraction ", i, "/", n, " - loaded from cache.")
     } else {
@@ -456,12 +455,11 @@ process_mirna <- function(i) {
         output_path <- file.path(directories$features, window_filename)
 
         expanded_binding_sites <- read.table(file.path(directories$bindings, window_filename), sep = "\t", header = TRUE)
-        if (nrow(expanded_binding_sites) == 0)
-        {
+        if (nrow(expanded_binding_sites) == 0) {
             write.table(data.frame(), output_path, sep = "\t", row.names = FALSE, col.names = TRUE) # no target sites, write an empty file
             next
         }
-        
+
         # rnafold output alternates every other line between the mirna sequence and the rnafold structure prediction- split it into a two column dataframe
         rnafolds_lr_raw <- read.table(file.path(directories$folds_rnafold_lr, paste0(mirna_id, ".csv")), sep = ",", header = FALSE)
         rnafolds_lr <- do.call("cbind", split(rnafolds_lr_raw, rep(c(1, 2), length.out = nrow(rnafolds_lr_raw))))
@@ -507,7 +505,7 @@ process_mirna <- function(i) {
 
         folding_windows <- read.table(file.path(directories$windows, window_filename), sep = "\t", header = TRUE)
         rnaplfolds <- load_rnaplfolds(mirna_id, folding_windows, seed_features)
-      
+
         # combine all extracted features into one dataframe
         combined_features <- cbind(
             single_base_features,
@@ -539,7 +537,7 @@ process_mirna <- function(i) {
                 combined_features$dist_closest_utr_end[j] <- binding_pos
             }
         }
-        
+
         # for cases of abundance (MTS), track which is likely the strongest candidate (determined by: most seed bases paired folloed by strongest mfe)
         combined_features$best_abundance <- FALSE
         best_abundance_idx <- -1

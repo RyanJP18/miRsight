@@ -1,5 +1,5 @@
 #
-# Use a GenomicScores conservation track to produce a genome-wide set of base scores that are easy to extract and store. 
+# Use a GenomicScores conservation track to produce a genome-wide set of base scores that are easy to extract and store.
 # In cases where a track library does not exist, AnnotationHub is used to download necessary data and build a track package.
 #
 
@@ -17,37 +17,39 @@ ah_download <- function(ah, ids, max_retries = 5) {
     attempt <- 1
     success <- rep(FALSE, length(ids))
     downloaded_files <- character(length(ids))
-    
+
     while (attempt <= max_retries && any(!success)) {
         for (i in which(!success)) {
-            tryCatch({
-                downloaded_files[i] <- cache(ah[ids[i]])
-                success[i] <- TRUE
-            }, error = function(e) { })
+            tryCatch(
+                {
+                    downloaded_files[i] <- cache(ah[ids[i]])
+                    success[i] <- TRUE
+                },
+                error = function(e) { }
+            )
         }
-        
+
         if (any(!success)) {
             attempt <- attempt + 1
             message(sprintf("Retrying annotationHub download attempt %d for %s.", attempt, ids[i]))
             Sys.sleep(5) # delay retrying a few seconds
         }
     }
-    
+
     return(downloaded_files[success])
 }
 
 load_phylo_pkg <- function() {
-
     if (!as.logical(settings$use_precompiled_conservation) || !file.exists(file.path(directories$conservation, "phylo100.tsv"))) {
         suppressMessages(library(GenomicScores))
         suppressMessages(library(AnnotationHub))
 
         message("Downloading phyloP100way.UCSC.hg38 data from AnnotationHub...")
         # This is a reimplementation of the GenomicScores getGScores function https://rdrr.io/bioc/GenomicScores/src/R/getGScores.R
-        # which adds a workaround for an issue where there is a baked in concurrent download limit of 10 in Docker/Python/R 
+        # which adds a workaround for an issue where there is a baked in concurrent download limit of 10 in Docker/Python/R
         # ---
         ah <- AnnotationHub()
-        ah <- query(ah, 'phyloP100way.UCSC.hg38')
+        ah <- query(ah, "phyloP100way.UCSC.hg38")
 
         ## use the AnnotationHub metadata to figure out the correspondence
         ## between downloaded filenames and object names
@@ -56,8 +58,8 @@ load_phylo_pkg <- function() {
         ahids <- rownames(mdah)
 
         # Custom miRsight code: fix download limit by getting files in smaller batches
-        batch_size <- 10 
-        fnames <- character(0) 
+        batch_size <- 10
+        fnames <- character(0)
 
         # for (i in seq(1, length(ahids), by = batch_size)) {
         #     subset_ids <- ahids[i:min(i + batch_size - 1, length(ahids))]
@@ -79,22 +81,24 @@ load_phylo_pkg <- function() {
         ## load the first object to get the metadata
         obj <- ah[[1]]
         mdobj <- metadata(obj)
-        gsco <- GScores(provider=mdobj$provider,
-                        provider_version=mdobj$provider_version,
-                        download_url=mdobj$download_url,
-                        download_date=mdobj$download_date,
-                        reference_genome=mdobj$reference_genome,
-                        data_pkgname=mdobj$data_pkgname,
-                        data_dirpath=getAnnotationHubOption("CACHE"),
-                        data_serialized_objnames=serializedobjs)
-        scorlelist <- get(mdobj$data_pkgname, envir=gsco@.data_cache)
+        gsco <- GScores(
+            provider = mdobj$provider,
+            provider_version = mdobj$provider_version,
+            download_url = mdobj$download_url,
+            download_date = mdobj$download_date,
+            reference_genome = mdobj$reference_genome,
+            data_pkgname = mdobj$data_pkgname,
+            data_dirpath = getAnnotationHubOption("CACHE"),
+            data_serialized_objnames = serializedobjs
+        )
+        scorlelist <- get(mdobj$data_pkgname, envir = gsco@.data_cache)
         scorlelist[[mdobj$seqname]] <- obj
-        assign(mdobj$data_pkgname, scorlelist, envir=gsco@.data_cache)
+        assign(mdobj$data_pkgname, scorlelist, envir = gsco@.data_cache)
         # ---
-        
+
         message("Creating phyloP100way.UCSC.hg38 package...")
-        makeGScoresPackage(gsco, maintainer="miRsight <mirsight@mirsight.info>", author="miRsight", version="1.0.0")
-        suppressMessages(install.packages("./phyloP100way.UCSC.hg38", repos=NULL, type="source", lib="/rlib"))
+        makeGScoresPackage(gsco, maintainer = "miRsight <mirsight@mirsight.info>", author = "miRsight", version = "1.0.0")
+        suppressMessages(install.packages("./phyloP100way.UCSC.hg38", repos = NULL, type = "source", lib = "/rlib"))
         message("Installed phyloP100way.UCSC.hg38 package.")
     }
 
@@ -111,7 +115,7 @@ generate_conservation_scores <- function(track, filename, transcripts) {
         message(paste("Generating", conservation_name, "scores... This will take a while..."))
 
         sink(file.path(directories$conservation, filename))
-        for (i in seq_len(nrow(transcripts))) { 
+        for (i in seq_len(nrow(transcripts))) {
             if (is.na(transcripts$X3_utr_start[i]) || is.na(transcripts$X3_utr_end[i])) {
                 cat(transcripts$ensembl_transcript_id[i])
                 cat(" ")
@@ -126,7 +130,7 @@ generate_conservation_scores <- function(track, filename, transcripts) {
             cat("\n")
         }
         sink()
-        
+
         message(paste("Generating", conservation_name, "scores - done."))
     }
 }

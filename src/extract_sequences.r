@@ -48,10 +48,10 @@ extract_sequence_coordinates <- function(annotations, ensdb, genome, chromosome_
         for (i in seq_len(nrow(utr_infos_table))) {
             if (utr_infos_table$strand[i] == "+") {
                 utr_infos_table$X3_utr_start[i] <- utr_infos_table$tx_cds_seq_end[i] + 1
-                utr_infos_table$X3_utr_end[i] <-  utr_infos_table$end[i]
+                utr_infos_table$X3_utr_end[i] <- utr_infos_table$end[i]
             } else {
                 utr_infos_table$X3_utr_start[i] <- utr_infos_table$start[i]
-                utr_infos_table$X3_utr_end[i] <-  utr_infos_table$tx_cds_seq_start[i] - 1
+                utr_infos_table$X3_utr_end[i] <- utr_infos_table$tx_cds_seq_start[i] - 1
             }
 
             utr_infos_table$X3_utr_length[i] <- utr_infos_table$X3_utr_end[i] - utr_infos_table$X3_utr_start[i] + 1
@@ -59,7 +59,8 @@ extract_sequence_coordinates <- function(annotations, ensdb, genome, chromosome_
         }
 
         annotations <- merge(annotations, utr_infos_table[, c("tx_id", "X3_utr_start", "X3_utr_end", "X3_utr_length", "cds_length")],
-            by.x = "ensembl_transcript_id", by.y = "tx_id", all.x = TRUE)
+            by.x = "ensembl_transcript_id", by.y = "tx_id", all.x = TRUE
+        )
         annotations$ensembl_transcript_id <- NULL
         write.table(annotations, file.path(directories$annotations, "annotations.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
 
@@ -97,13 +98,13 @@ extract_cds_sequences <- function(annotations, ensdb, genome, chromosome_filter)
 annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
 if (as.logical(settings$use_caching) && "X3_utr_start" %in% colnames(annotations) &&
-    file.exists(file.path(directories$annotations, "utr_sequences.tsv")) && file.exists(file.path(directories$annotations, "cds_sequences.tsv"))) {
+        file.exists(file.path(directories$annotations, "utr_sequences.tsv")) && file.exists(file.path(directories$annotations, "cds_sequences.tsv"))) {
     cat(paste("Loaded sequences from cache.\n"))
 } else {
     suppressMessages(library(ensembldb))
     suppressMessages(library(AnnotationHub))
     suppressMessages(library(BSgenome.Hsapiens.NCBI.GRCh38))
-    
+
     annotations$ensembl_transcript_id <- stringr::str_extract(annotations$ensembl_transcript_id_version, "[^.]+")
 
     gtfdb <- ensDbFromGtf(file.path(directories$preload_data, "annotation.gtf"), organism = "Homo_sapiens", version = settings$ensembl_release, genomeVersion = "GRCh38")
