@@ -45,9 +45,10 @@ load_phylo_pkg <- function() {
         suppressMessages(library(AnnotationHub))
 
         message("Downloading phyloP100way.UCSC.hg38 data from AnnotationHub...")
+
         # This is a reimplementation of the GenomicScores getGScores function https://rdrr.io/bioc/GenomicScores/src/R/getGScores.R
         # which adds a workaround for an issue where there is a baked in concurrent download limit of 10 in Docker/Python/R
-        # ---
+        # --- start of getGScores function
         ah <- AnnotationHub()
         ah <- query(ah, "phyloP100way.UCSC.hg38")
 
@@ -57,20 +58,16 @@ load_phylo_pkg <- function() {
         objnames <- mdah$title
         ahids <- rownames(mdah)
 
-        # Custom miRsight code: fix download limit by getting files in smaller batches
+        # start of custom miRsight code: fix download limit by fetching files in smaller batches
         batch_size <- 10
         fnames <- character(0)
 
-        # for (i in seq(1, length(ahids), by = batch_size)) {
-        #     subset_ids <- ahids[i:min(i + batch_size - 1, length(ahids))]
-        #     fnames <- c(fnames, cache(ah[subset_ids]))
-        # }
         for (i in seq(1, length(ahids), by = batch_size)) {
             subset_ids <- ahids[i:min(i + batch_size - 1, length(ahids))]
             files <- ah_download(ah, subset_ids)
             fnames <- c(fnames, files)
         }
-        # End of custom miRsight code:
+        # end of custom miRsight code:
 
         ## in BioC 3.8 names from 'cache()' became 'AHXXXX : YYYY'
         ## so we need to override those names.
@@ -94,7 +91,7 @@ load_phylo_pkg <- function() {
         scorlelist <- get(mdobj$data_pkgname, envir = gsco@.data_cache)
         scorlelist[[mdobj$seqname]] <- obj
         assign(mdobj$data_pkgname, scorlelist, envir = gsco@.data_cache)
-        # ---
+        # --- end of getGScores function
 
         message("Creating phyloP100way.UCSC.hg38 package...")
         makeGScoresPackage(gsco, maintainer = "miRsight <mirsight@mirsight.info>", author = "miRsight", version = "1.0.0")

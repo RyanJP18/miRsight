@@ -117,7 +117,7 @@ process_mirna <- function(i) {
         raw_binding_sites <- read.table(file.path(directories$bindings_raw, binding_site_filename), sep = "\t", header = TRUE)
         expanded_binding_sites <- read.table(file.path(directories$bindings, binding_site_filename), sep = "\t", header = TRUE)
 
-        utrs <- utrs[rep(1:nrow(raw_binding_sites), raw_binding_sites$site_abundance_6mer), ]
+        utrs <- utrs[rep(seq_len(nrow(raw_binding_sites)), raw_binding_sites$site_abundance_6mer), ]
 
         mirna_sequence <- mirna_sequences[mirna_sequences$mirna_id == mirna_id, ]$mirna_sequence
 

@@ -54,9 +54,9 @@ expand_binding_sites <- function(binding_sites, target_6mer) {
     # transcript1 match2 total_matches=3
     # transcript1 match3 total_matches=3
     # transcript2 match1 total_matches=1
-    expanded_binding_sites <- binding_sites[rep(1:nrow(binding_sites), binding_sites$site_abundance_6mer), ]
+    expanded_binding_sites <- binding_sites[rep(seq_len(nrow(binding_sites)), binding_sites$site_abundance_6mer), ]
     filtered_utrs <- utrs[utrs$ensembl_transcript_id_version %in% binding_sites$ensembl_transcript_id_version, ]
-    filtered_utrs <- filtered_utrs[rep(1:nrow(binding_sites), binding_sites$site_abundance_6mer), ]
+    filtered_utrs <- filtered_utrs[rep(seq_len(nrow(binding_sites)), binding_sites$site_abundance_6mer), ]
 
     i <- 1
     while (i <= nrow(expanded_binding_sites)) {
