@@ -1,55 +1,59 @@
+"""
+Use extracted shape reactivity scores from different sources to produce mean scores for each binding site. 
+"""
+
 import csv
 import os
-import multiprocessing
-import pandas as pd
-import numpy as np
 from pathlib import Path
 from multiprocessing import Pool
+from ast import literal_eval
+
 
 class ShapeScorer:
+    """ A parser/scorer which works with intermediary output from shape_parser to compute mean seed and supplementary shape scores across shape sources """
 
-    def compute_average(self, features, parsed_shape):
-        for feature, shape in zip(features, parsed_shape):
-            total = 0
-            available = 0
+    shape_seed_cols = []
+    shape_sup_cols = []
 
-            # get an average seed reactivity score
-            for col in self.shape_seed_cols:
-                if shape[col] != 'NA':
-                    available = available + 1
-                    total = total + float(shape[col])
-                
-            if available == 0:
-                feature.append('NA')
-            else:
-                total = total / available
-                feature.append(total)
+    def _compute_average(self, shape, cols):
+        """ Compute the mean shape score by combining each shape source's average """
 
-            total = 0
-            available = 0
-                
-            # get an average supplementary reactivity score
-            for col in self.shape_sup_cols:
-                if shape[col] != 'NA':
-                    available = available + 1
-                    total = total + float(shape[col])
-                
-            if available == 0:
-                feature.append('NA')
-            else:
-                total = total / available
-                feature.append(total)
+        # add up the total shape score, noting how many non-NA values were used to build it
+        total = 0
+        available = 0
+        for col in cols:
+            if shape[col] != "NA":
+                available += 1
+                total += float(shape[col])
+
+        # return the average- as NAs are common, try to salvage provided there is at least one value available, otherwise NA
+        return "NA" if available == 0 else total / available
+
+    def process_file_pair(self, features, parsed_shape):
+        """ Compute the average across each shape column to determine our seed and supplementary average shape reactivity scores for each binding site """
+
+        # build up a new features frame which now contains shape data
+        features_with_shape = features.copy()
+        for feature, shape in zip(features_with_shape, parsed_shape):
+            feature.append(self._compute_average(shape, self.shape_seed_cols))
+            feature.append(self._compute_average(shape, self.shape_sup_cols))
+
+        return features_with_shape
 
     def score_shape(self, args):
-        directories, features_filename, file_index, file_count = args
+        """ Produce a seed and supplementary shape value for each binding using parsed shape reactivity values from each shape source """
 
-        output_path = os.path.join(directories["features_cons_shape"], features_filename)
+        features_filename, file_index, file_count = args
+
+        output_path = os.path.join(self.directories["features_cons_shape"], features_filename)
 
         if self.use_caching and os.path.exists(output_path):
-            print(f"Shape extraction {str(file_index + 1)}/{str(file_count)} - loaded from cache.")
+            print(f"Shape scoring {str(file_index + 1)}/{str(file_count)} - loaded from cache.")
             return
 
-        with open(os.path.join(directories["features_conservation"], features_filename)) as features_file, open(os.path.join(directories["parsed_shape"], features_filename)) as shape_file:
+        with open(os.path.join(self.directories["features_conservation"], features_filename), "r", encoding="utf-8") as features_file, \
+                open(os.path.join(self.directories["parsed_shape"], features_filename), "r", encoding="utf-8") as shape_file:
+
             feature_reader = csv.reader(features_file, delimiter="\t")
             shape_reader = csv.DictReader(shape_file, delimiter="\t")
 
@@ -58,34 +62,36 @@ class ShapeScorer:
             feature_headers.append("shape_seed")
             feature_headers.append("shape_sup")
 
-            # compute the average across each shape column to determine our seed and supplementary average shape reactivity scores
-            features = list(feature_reader)
-            parsed_shape = list(shape_reader)
-            self.compute_average(features, parsed_shape)
-        
-            with open(output_path, "w", newline="") as outfile:
+            features_with_shape = self.process_file_pair(list(feature_reader), list(shape_reader))
+
+            # store original feature values, plus new shape values in a single table ready for ML
+            with open(output_path, "w", encoding="utf-8", newline="") as outfile:
                 writer = csv.writer(outfile, delimiter="\t")
                 writer.writerow(feature_headers)
-                writer.writerows(features)
-                print(f"Shape extraction {str(file_index + 1)}/{str(file_count)} - done.")         
+                writer.writerows(features_with_shape)
 
-    def __init__(self, settings, directories):
-        self.use_caching = eval(settings["use_caching"])
-        max_cores = int(settings['max_cores'])
-        cores = max_cores if max_cores != -1 else multiprocessing.cpu_count() - 1
+            print(f"Shape scoring {str(file_index + 1)}/{str(file_count)} - done.")
 
-        self.shape_seed_cols = []
-        self.shape_sup_cols = []
+    def score_batch(self):
+        """ Produce mean reactivity scores for a batch of feature files """
 
-        for shape_filename in os.listdir(directories["shape_data"]):
+        # each shape file located in the main shape directory is considered a new dataset
+        for shape_filename in os.listdir(self.directories["shape_data"]):
             shape_source = Path(shape_filename).stem.lower()
 
+            # track a dynamically named (according to the located file) seed and supplementary column for each dataset
             self.shape_seed_cols.append(shape_source + "_seed")
             self.shape_sup_cols.append(shape_source + "_sup")
 
-        with Pool(processes=cores) as pool:
-            features_files = os.listdir(directories["features_conservation"])
+        with Pool(processes=self.cores) as pool:
+            features_files = os.listdir(self.directories["features_conservation"])
             file_count = len(features_files)
-            pool.map(self.score_shape, [(directories, features_filename, file_index, file_count) for (file_index, features_filename) in enumerate(features_files)])
+            pool.map(self.score_shape, [(features_filename, file_index, file_count) for (
+                file_index, features_filename) in enumerate(features_files)])
 
-        
+    def __init__(self, settings, directories, cores):
+        self.settings = settings
+        self.directories = directories
+        self.cores = int(cores)
+
+        self.use_caching = literal_eval(settings["use_caching"])

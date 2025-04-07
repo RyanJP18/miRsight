@@ -33,7 +33,7 @@ parse_mirnas <- function() {
         mirna_sequences <- create_new_frame(c("mirna_id", "mirna_sequence"), NULL, length(ids))
         mirna_sequences$mirna_id <- ids
         mirna_sequences$mirna_sequence <- sequences
-        mirna_sequences <- mirna_sequences[grepl('hsa-', mirna_sequences$mirna_id), ]
+        mirna_sequences <- mirna_sequences[grepl("hsa-", mirna_sequences$mirna_id), ]
 
         # store lookup table
         write.table(mirna_sequences, file.path(directories$annotations, "mirna_sequences.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
@@ -63,8 +63,10 @@ parse_annotations <- function() {
 
         # parse the poorly formatted attribute data into columns and simplify
         colnames(attribute) <-
-            c("ensembl_gene_id", "ensembl_gene_version", "ensembl_transcript_id", "ensembl_transcript_version",
-            "external_gene_id", "gene_source", "gene_biotype", "transcript_name", "transcript_source", "transcript_biotype")
+            c(
+                "ensembl_gene_id", "ensembl_gene_version", "ensembl_transcript_id", "ensembl_transcript_version",
+                "external_gene_id", "gene_source", "gene_biotype", "transcript_name", "transcript_source", "transcript_biotype"
+            )
         attribute <- attribute[, c("ensembl_gene_id", "ensembl_transcript_id", "ensembl_transcript_version", "external_gene_id", "transcript_biotype")]
         attribute[] <- lapply(attribute, function(x) stringr::str_extract(x, "\\w+$"))
 

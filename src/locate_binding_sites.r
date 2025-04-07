@@ -3,6 +3,7 @@ suppressMessages(library(jsonlite))
 config <- jsonlite::fromJSON(args[1])
 settings <- config$settings
 directories <- config$directories
+cores <- as.numeric(args[2])
 
 suppressMessages(library(dplyr))
 suppressMessages(library(parallel))
@@ -17,10 +18,13 @@ reverse_complement <- dget("src/functions/reverse_complement.r")
 # find any 6mer or 6mer offset binding sites and count them up to determine their abundance values, also check the cds
 locate_binding_sites <- function(target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer) {
     binding_sites <- create_new_frame(
-        c("ensembl_transcript_id_version", 
-        "site_abundance_6mer", "site_abundance_6off", "site_abundance_7a1", "site_abundance_7m8", "site_abundance_7mer", "site_abundance_8mer",
-        "site_abundance_6cds", "site_abundance_7a1cds", "site_abundance_7m8cds", "site_abundance_7cds", "site_abundance_8cds"), NULL, nrow(utrs))
-    
+        c(
+            "ensembl_transcript_id_version",
+            "site_abundance_6mer", "site_abundance_6off", "site_abundance_7a1", "site_abundance_7m8", "site_abundance_7mer", "site_abundance_8mer",
+            "site_abundance_6cds", "site_abundance_7a1cds", "site_abundance_7m8cds", "site_abundance_7cds", "site_abundance_8cds"
+        ), NULL, nrow(utrs)
+    )
+
     binding_sites$site_abundance_6mer <- stri_count_regex(utrs$X3utr, paste0("(?=", target_6mer, ")"))
     binding_sites$site_abundance_6off <- stri_count_regex(utrs$X3utr, paste0("(?=", target_6off, ")"))
     binding_sites$site_abundance_7a1 <- stri_count_regex(utrs$X3utr, paste0("(?=", target_7mer_a1, ")"))
@@ -50,13 +54,13 @@ expand_binding_sites <- function(binding_sites, target_6mer) {
     # transcript1 match2 total_matches=3
     # transcript1 match3 total_matches=3
     # transcript2 match1 total_matches=1
-    expanded_binding_sites <- binding_sites[rep(1:nrow(binding_sites), binding_sites$site_abundance_6mer), ]
+    expanded_binding_sites <- binding_sites[rep(seq_len(nrow(binding_sites)), binding_sites$site_abundance_6mer), ]
     filtered_utrs <- utrs[utrs$ensembl_transcript_id_version %in% binding_sites$ensembl_transcript_id_version, ]
-    filtered_utrs <- filtered_utrs[rep(1:nrow(binding_sites), binding_sites$site_abundance_6mer), ]
+    filtered_utrs <- filtered_utrs[rep(seq_len(nrow(binding_sites)), binding_sites$site_abundance_6mer), ]
 
     i <- 1
     while (i <= nrow(expanded_binding_sites)) {
-        # note: using lookahead assertion (?=pattern) regex to find overlapping matches, e.g. GCAGCAGCA should return a match for GCAGCA at both pos 1 and 4, not just 1 
+        # note: using lookahead assertion (?=pattern) regex to find overlapping matches, e.g. GCAGCAGCA should return a match for GCAGCA at both pos 1 and 4, not just 1
         matches_6mer <- unlist(gregexpr(paste0("(?=", target_6mer, ")"), filtered_utrs$X3utr[i], perl = TRUE))
         for (j in seq_len(length(matches_6mer))) {
             expanded_binding_sites$binding_site_pos[i + j - 1] <- matches_6mer[j]
@@ -68,11 +72,9 @@ expand_binding_sites <- function(binding_sites, target_6mer) {
 }
 
 process_mirna <- function(i) {
-
-    if (as.logical(settings$use_caching) && file.exists(file.path(directories$bindings, paste0(mirna_sequences[i, ]$mirna_id, '.tsv')))) {
+    if (as.logical(settings$use_caching) && file.exists(file.path(directories$bindings, paste0(mirna_sequences[i, ]$mirna_id, ".tsv")))) {
         message("Locating binding sites ", i, "/", n, " - loaded from cache.")
     } else {
-        
         mirna <- mirna_sequences[i, ]
         mirna_id <- mirna$mirna_id
         mirna_sequence <- mirna$mirna_sequence
@@ -90,30 +92,34 @@ process_mirna <- function(i) {
         target_7mer_a1 <- reverse_complement(site_7mer_a1)
         site_7mer_m8 <- substr(mirna_sequence, start = 2, stop = 8)
         target_7mer_m8 <- reverse_complement(site_7mer_m8)
-        site_8mer <- paste0("T", substr(mirna_sequence, start = 2, stop = 8)) 
+        site_8mer <- paste0("T", substr(mirna_sequence, start = 2, stop = 8))
         target_8mer <- reverse_complement(site_8mer)
 
         # locate the binding sites and store them
         binding_sites <- locate_binding_sites(target_6mer, target_6off, target_7mer_a1, target_7mer_m8, target_8mer)
 
         # handle abundance as separate sites
-        expanded_binding_sites <- expand_binding_sites(binding_sites, target_6mer) 
+        expanded_binding_sites <- expand_binding_sites(binding_sites, target_6mer)
 
         # only log binding sites for this transfection if there was at least one 6mer or better
         if (nrow(expanded_binding_sites) > 0) {
             write.table(
                 binding_sites[order(binding_sites$ensembl_transcript_id_version), ],
                 file = file.path(directories$bindings_raw, paste0(mirna_id, ".tsv")), quote = FALSE, sep = "\t",
-                row.names = FALSE)
+                row.names = FALSE
+            )
 
             write.table(
                 expanded_binding_sites[order(expanded_binding_sites$ensembl_transcript_id_version), ],
                 file = file.path(directories$bindings, paste0(mirna_id, ".tsv")), quote = FALSE, sep = "\t",
-                row.names = FALSE)
+                row.names = FALSE
+            )
 
             # log binding site and target information for this transfection
-            target_sites[i, ] <- c(gsub("*.tsv", "", mirna_id), site_6mer, target_6mer, site_6off, target_6off, site_7mer_a1, target_7mer_a1, 
-                site_7mer_m8, target_7mer_m8, site_8mer, target_8mer)
+            target_sites[i, ] <- c(
+                gsub("*.tsv", "", mirna_id), site_6mer, target_6mer, site_6off, target_6off, site_7mer_a1, target_7mer_a1,
+                site_7mer_m8, target_7mer_m8, site_8mer, target_8mer
+            )
         }
 
         message("Locating binding sites ", i, "/", n, " - done.")
@@ -146,12 +152,11 @@ mirna_sequences <- read.table(file.path(directories$annotations, "mirna_sequence
 if (settings$mirna_id_filter != "") {
     mirna_sequences <- mirna_sequences[mirna_sequences$mirna_id %in% strsplit(settings$mirna_id_filter, ",")[[1]], ]
 }
-
-target_sites <- create_new_frame(c("mirna_id", "site_6mer", "target_6mer", "site_6off", "target_6off", "site_7mer_a1", "target_7mer_a1", "site_7mer_m8",
-    "target_7mer_m8", "site_8mer", "target_8mer"), NULL, nrow(mirna_sequences))
-
 n <- nrow(mirna_sequences)
-max_cores <- as.numeric(settings$max_cores)
-cores <- ifelse(max_cores == -1, detectCores() - 1, cores <- max_cores)
+
+target_sites <- create_new_frame(c(
+    "mirna_id", "site_6mer", "target_6mer", "site_6off", "target_6off", "site_7mer_a1", "target_7mer_a1", "site_7mer_m8",
+    "target_7mer_m8", "site_8mer", "target_8mer"
+), NULL, nrow(mirna_sequences))
 
 result <- mclapply(1:n, process_mirna, mc.cores = cores)

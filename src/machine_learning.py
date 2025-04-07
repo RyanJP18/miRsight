@@ -1,30 +1,34 @@
+"""
+Manages machine learning interactions for a trained scikit-learn model and set of data.
+"""
+
 from pathlib import Path
 import os
 import csv
-import multiprocessing
 import pandas as pd
 
-from src.model_trainer import ModelTrainer
+from src.prediction_model import PredictionModel
+
 
 class MachineLearning:
-    
-    def __init__(self, settings, directories):
-             
-        max_cores = int(settings['max_cores'])
-        cores = max_cores if max_cores != -1 else multiprocessing.cpu_count() - 1
+    """ A utility class for managing a trained model and features in order to make predictions """
 
-        # prepare model
-        model = ModelTrainer(cores, directories["features_full_imputed"], directories["features_cons_shape"], directories["machine_learning"], directories["model_data"])
+    model = None
+    annotations = None
+    mirna_ids = None
 
-        # load annotations and filters 
-        annotations = pd.read_csv(Path(directories["annotations"], 'annotations.tsv'), sep='\t')
-        ensembl_transcript_id_filter = settings['ensembl_transcript_id_filter'].split(',')
-        ensembl_gene_id_filter = settings['ensembl_gene_id_filter'].split(',')
-        external_gene_id_filter = settings['external_gene_id_filter'].split(',')
+    def bind_model(self, model_filename, scaler_filename):
+        """ Prepare a trained model and associated scalers for making predictions """
 
-        # prepare output files 
-        output_path_all_pred = Path.joinpath(Path(directories["machine_learning"], "all-predictions.tsv"))
-        output_path_filtered_pred = Path.joinpath(Path(directories["machine_learning"], "filtered-predictions.tsv"))
+        self.model = PredictionModel(self.settings, self.directories, self.cores)
+        self.model.load(model_filename, scaler_filename)
+
+    def predict(self):
+        """ Make a set of predictions based on the supplied model and data for each miRNA """
+
+        # wipe any previous predictions
+        output_path_all_pred = Path.joinpath(Path(self.directories["machine_learning"], "all-predictions.tsv"))
+        output_path_filtered_pred = Path.joinpath(Path(self.directories["machine_learning"], "filtered-predictions.tsv"))
 
         if os.path.exists(output_path_all_pred):
             os.remove(output_path_all_pred)
@@ -32,34 +36,41 @@ class MachineLearning:
         if os.path.exists(output_path_filtered_pred):
             os.remove(output_path_filtered_pred)
 
-        mirna_files = os.listdir(directories["features_full_imputed"])
-        names = [f.split('.')[0] for f in mirna_files]
-        
-        i = 0
-        # iterate each mirna and make predictions
-        for name in names:
-            i += 1
+        annotations = pd.read_csv(Path(self.directories["annotations"], "annotations.tsv"), sep="\t")
 
-            # make predictions
-            predictions = model.predict(name)
-            
+        ensembl_transcript_id_filter = self.settings["ensembl_transcript_id_filter"].split(",")
+        ensembl_gene_id_filter = self.settings["ensembl_gene_id_filter"].split(",")
+        external_gene_id_filter = self.settings["external_gene_id_filter"].split(",")
+
+        mirna_files = os.listdir(self.directories["features_full_imputed"])
+        mirna_ids = [f.split(".")[0] for f in mirna_files]
+
+        # iterate each mirna and make predictions
+        for index, mirna_id in enumerate(mirna_ids):
+            predictions = self.model.predict(mirna_id)
+
             # supplement predictions with annotations and reorganise the data to be more useful
-            merged_predictions = pd.merge(annotations, predictions, on='ensembl_transcript_id_version')
-            merged_predictions = merged_predictions[['mirna_id', 'ensembl_transcript_id_version', 'ensembl_gene_id', 'external_gene_id', 'binding_pos', 'seed', 'score']]
-            merged_predictions = merged_predictions.sort_values(by='score', ascending=False)
+            merged_predictions = pd.merge(annotations, predictions, on="ensembl_transcript_id_version")
+            merged_predictions = merged_predictions[["mirna_id", "ensembl_transcript_id_version", "ensembl_gene_id", "external_gene_id", "binding_pos", "seed", "score"]]
+            merged_predictions = merged_predictions.sort_values(by="score", ascending=False)
 
             # output unfiltered predictions
-            merged_predictions.to_csv(output_path_all_pred, mode='a', sep='\t', index=False, header=(i == 1), quoting=csv.QUOTE_NONE)
+            merged_predictions.to_csv(output_path_all_pred, mode="a", sep="\t", index=False, header=(index == 1), quoting=csv.QUOTE_NONE)
 
             # apply any transcript/gene filters supplied in the config
-            if settings['ensembl_transcript_id_filter'] != "":
-                merged_predictions = merged_predictions[merged_predictions['ensembl_transcript_id_version'].str.split('.').str[0].isin(ensembl_transcript_id_filter)]
-            if settings['ensembl_gene_id_filter'] != "":
-                merged_predictions = merged_predictions[merged_predictions['ensembl_gene_id'].isin(ensembl_gene_id_filter)]
-            if settings['external_gene_id_filter'] != "":
-                merged_predictions = merged_predictions[merged_predictions['external_gene_id'].isin(external_gene_id_filter)]
+            if self.settings["ensembl_transcript_id_filter"] != "":
+                merged_predictions = merged_predictions[merged_predictions["ensembl_transcript_id_version"].str.split(".").str[0].isin(ensembl_transcript_id_filter)]
+            if self.settings["ensembl_gene_id_filter"] != "":
+                merged_predictions = merged_predictions[merged_predictions["ensembl_gene_id"].isin(ensembl_gene_id_filter)]
+            if self.settings["external_gene_id_filter"] != "":
+                merged_predictions = merged_predictions[merged_predictions["external_gene_id"].isin(external_gene_id_filter)]
 
             # output filtered predictions
-            merged_predictions.to_csv(output_path_filtered_pred, mode='a', sep='\t', index=False, header=(i == 1), quoting=csv.QUOTE_NONE)
+            merged_predictions.to_csv(output_path_filtered_pred, mode="a", sep="\t", index=False, header=(index == 1), quoting=csv.QUOTE_NONE)
 
-            print(f"Predicting targets {i}/{len(names)} - done.")         
+            print(f"Predicting targets {index + 1}/{len(mirna_ids)} - done.")
+
+    def __init__(self, settings, directories, cores):
+        self.settings = settings
+        self.directories = directories
+        self.cores = cores
