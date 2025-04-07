@@ -1,9 +1,9 @@
 {
     "settings": {
         "use_caching": "True",
-        "max_cores": "1",
+        "max_cores": "-1",
 
-        "mirna_id_filter": "hsa-let-7a-3p,hsa-miR-21-3p,hsa-miR-28-3p,hsa-miR-133b,hsa-miR-7150,hsa-miR-124-3p",
+        "mirna_id_filter": "",
         "ensembl_transcript_id_filter": "",
         "ensembl_gene_id_filter": "",
         "external_gene_id_filter": "",

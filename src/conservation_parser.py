@@ -13,20 +13,20 @@ import numpy as np
 
 
 class ConservationParser:
-    """ A utility class for parsing cached generate_conservation_scores output for miRNA target sites """
+    """ A parser which extracts cached generate_conservation_scores output for miRNA target sites """
 
     ConservationTrack = namedtuple("ConservationTrack", ["name", "rows"])
     Target = namedtuple("Target", ["row_index", "transcript_id"])
 
-    def compute_mean_score(self, raw_scores):
+    def _compute_mean_score(self, raw_scores):
         """ Compute the mean of a collection of scores, or return NA if values are missing """
 
         return np.nan if "NA" in raw_scores or len(raw_scores) == 0 else np.mean(np.array(raw_scores, dtype=np.float32))
 
-    def score_target(self, index, features, conservation, conservation_track):
+    def _score_target(self, row_index, features, conservation, conservation_track):
         """ Score a specific target by getting the mean across its bases """
 
-        current_features = features.iloc[index]
+        current_features = features.iloc[row_index]
 
         # match pos is relative to the 6mer, additionally it counts wrong because python goes from 0 whereas R goes from 1
         # i.e. a match at pos 2 needs to be match_pos - 1 to give it an accessor of 1, or -2 to get the full 8 base seed
@@ -41,13 +41,13 @@ class ConservationParser:
         start_5 = end_5 - 30
 
         # extract conservation scores between specific base ranges
-        features.at[index, conservation_track.name + "_seed"] = self.compute_mean_score(conservation[start_seed:end_seed])
-        features.at[index, conservation_track.name + "_sup"] = self.compute_mean_score(conservation[start_sup:end_sup])
-        features.at[index, conservation_track.name + "_3"] = self.compute_mean_score(conservation[start_sup:end_3])
-        features.at[index, conservation_track.name + "_5"] = self.compute_mean_score(conservation[start_5:end_5])
+        features.at[row_index, conservation_track.name + "_seed"] = self._compute_mean_score(conservation[start_seed:end_seed])
+        features.at[row_index, conservation_track.name + "_sup"] = self._compute_mean_score(conservation[start_sup:end_sup])
+        features.at[row_index, conservation_track.name + "_3"] = self._compute_mean_score(conservation[start_sup:end_3])
+        features.at[row_index, conservation_track.name + "_5"] = self._compute_mean_score(conservation[start_5:end_5])
 
-    def parse_row(self, target, features, conservation_row, conservation_track):
-        """ Walk a row of the features table, recursively handling any instances of multiple target sites, by parsing and computing mean conservation scores """
+    def _parse_row(self, target, features, conservation_row, conservation_track):
+        """ Walk a row of the features table, recursively handling any instances of multiple target sites, by parsing and computing mean conservation scores for each """
 
         if target.row_index >= len(features.index):  # if our row_index is out of bounds
             return -1  # we have finished looping through each transcript
@@ -62,12 +62,12 @@ class ConservationParser:
 
             # multiple target sites detected, move the index and call recursively
             next_target = self.Target(target.row_index + 1, target.transcript_id)
-            return self.parse_row(next_target, features, conservation_row, conservation_track)
+            return self._parse_row(next_target, features, conservation_row, conservation_track)
 
         # process each (instance of multiple) target site
         mts_count = features.iloc[target.row_index]["site_abundance_6mer"]
         for i in range(0, mts_count):
-            self.score_target(target.row_index + i, features, conservation_row, conservation_track)
+            self._score_target(target.row_index + i, features, conservation_row, conservation_track)
 
         return target.row_index + i
 
@@ -81,12 +81,12 @@ class ConservationParser:
         for conservation_row in conservation_track.rows:
             target = self.Target(row_idx, conservation_row.pop(0))
 
-            row_idx = self.parse_row(target, features, conservation_row, conservation_track)
+            row_idx = self._parse_row(target, features, conservation_row, conservation_track)
             if row_idx == -1:
                 break
 
-    def parse_features_file(self, args):
-        """ Compute mean conservation scores for a features file by iterating each of its transcripts with each conservation track """
+    def parse_conservation(self, args):
+        """ Compute mean conservation scores for each conservation track by iterating each target row in a features file """
 
         features_filename, file_index, file_count = args
 
@@ -111,13 +111,13 @@ class ConservationParser:
         print(f"Conservation parsing {str(file_index + 1)}/{str(file_count)} - done.")
 
     def parse_batch(self):
-        """ Parse conservation scores for a batch of files """
+        """ Parse conservation scores for a batch of features files """
 
         with Pool(processes=self.cores) as pool:
             features_files = os.listdir(self.directories["features"])
             file_count = len(features_files)
 
-            pool.map(self.parse_features_file, [(features_filename, file_index, file_count) for (file_index, features_filename) in enumerate(features_files)])
+            pool.map(self.parse_conservation, [(features_filename, file_index, file_count) for (file_index, features_filename) in enumerate(features_files)])
 
     def __init__(self, settings, directories, cores):
         self.settings = settings

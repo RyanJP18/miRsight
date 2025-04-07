@@ -131,11 +131,13 @@ def main(paths, config):
     else:
         print("Using fresh data...")
 
-    ShapeParser(settings, directories, cores)
+    shape_parser = ShapeParser(settings, directories, cores)
+    shape_parser.parse_batch()
     print("08/11 Complete.\n")
 
     print("09/11 Producing average shape scores for each miRNA...")
-    ShapeScorer(settings, directories, cores)
+    shape_scorer = ShapeScorer(settings, directories, cores)
+    shape_scorer.score_batch()
     print("09/11 Complete.\n")
 
     print("10/11 Imputing any missing values for each miRNA...")
