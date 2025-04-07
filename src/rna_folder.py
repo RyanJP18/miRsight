@@ -21,20 +21,18 @@ class RNAFolder:
         output_dir = self.directories[output_dir_name]
 
         window_count = len(os.listdir(input_dir))
-        i = 0
 
-        for window_filename in os.listdir(input_dir):
-            i += 1
+        for index, window_filename in enumerate(os.listdir(input_dir)):
 
             input_path = Path(input_dir, window_filename)
             output_path = Path(output_dir, input_path.stem + ".csv")
 
             if self.use_caching and output_path.is_file():
-                print(f"Folding part {self.current_batch}/{self.batch_count} - {i}/{window_count} - loaded from cache.")
+                print(f"Folding part {self.current_batch}/{self.batch_count} - {index}/{window_count} - loaded from cache.")
             else:
                 exit_code = subprocess.call(f"RNAfold --noPS --jobs={self.cores} {str(input_path)} >> {str(output_path)}", shell=True)
                 if exit_code == 0:
-                    print(f"Folding part {self.current_batch}/{self.batch_count} - {i}/{window_count} - done.")
+                    print(f"Folding part {self.current_batch}/{self.batch_count} - {index}/{window_count} - done.")
                 else:
                     print("An error occurred running RNAfold for " + input_path.stem)
 
@@ -47,20 +45,18 @@ class RNAFolder:
         output_dir = self.directories[output_dir_name]
 
         window_count = len(os.listdir(input_dir))
-        i = 0
 
-        for window_filename in os.listdir(input_dir):
-            i += 1
+        for index, window_filename in enumerate(os.listdir(input_dir)):
 
             input_path = Path(input_dir, window_filename)
             output_path = Path(output_dir, input_path.stem + ".csv")
 
             if self.use_caching and output_path.is_file():
-                print(f"Folding part {self.current_batch}/{self.batch_count} - {i}/{window_count} - loaded from cache.")
+                print(f"Folding part {self.current_batch}/{self.batch_count} - {index}/{window_count} - loaded from cache.")
             else:
                 exit_code = subprocess.call(f"RNAcofold --jobs={self.cores} -C --noPS --output-format=D {str(input_path)} >> {str(output_path)}", shell=True)
                 if exit_code == 0:
-                    print(f"Folding part {self.current_batch}/{self.batch_count} - {i}/{window_count} - done.")
+                    print(f"Folding part {self.current_batch}/{self.batch_count} - {index}/{window_count} - done.")
                 else:
                     print(f"An error occurred running RNAcofold for {input_path.stem}")
 
