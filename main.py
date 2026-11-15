@@ -78,7 +78,7 @@ def main(config):
         print("Using precompiled data...")
 
         if not os.path.exists(PRECOMPILED_CONSERVATION_PATH):
-            urllib.request.urlretrieve("https://drive.proton.me/urls/GF7PBSQY84#9hJsZjnRXXzt", PRECOMPILED_CONSERVATION_PATH)
+            urllib.request.urlretrieve("https://github.com/RyanJP18/miRsight/releases/download/v2/precompiled_conservation_data.tar.gz", PRECOMPILED_CONSERVATION_PATH)
         with tarfile.open(PRECOMPILED_CONSERVATION_PATH, "r:gz") as tar:
             tar.extractall(path=".")
     else:
@@ -122,7 +122,7 @@ def main(config):
         print("Using precompiled data...")
 
         if not os.path.exists(PRECOMPILED_SHAPE_PATH):
-            urllib.request.urlretrieve("https://drive.proton.me/urls/TAM9T35J1G#lwl2NyaUGdZy", PRECOMPILED_SHAPE_PATH) 
+            urllib.request.urlretrieve("https://github.com/RyanJP18/miRsight/releases/download/v2/precompiled_shape_data.tar.gz", PRECOMPILED_SHAPE_PATH) 
         with tarfile.open(PRECOMPILED_SHAPE_PATH, "r:gz") as tar:
             tar.extractall(path=".")
     else:
