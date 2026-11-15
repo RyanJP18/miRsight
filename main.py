@@ -7,6 +7,8 @@ import subprocess
 import tarfile
 import multiprocessing
 import sys
+import urllib.request
+import os
 from pathlib import Path
 from ast import literal_eval
 from src.machine_learning import MachineLearning
@@ -68,11 +70,15 @@ def main(config):
 
     print("01/11 Parsing annotation data and extracting 3' UTR / CDS sequences...")
     run_subprocess(["Rscript", "src/parse_annotation_data.r", CONFIG_PATH], "An error occurred while parsing annotation data.")
+    run_subprocess(["Rscript", "src/extract_sequences.r", CONFIG_PATH], "An error occurred while extracting sequences.")
     print("01/11 Complete.\n")
 
     print("02/11 Generating a conservation score cache...")
     if literal_eval(settings["use_precompiled_conservation"]):
         print("Using precompiled data...")
+
+        if not os.path.exists(PRECOMPILED_CONSERVATION_PATH):
+            urllib.request.urlretrieve("https://drive.proton.me/urls/GF7PBSQY84#9hJsZjnRXXzt", PRECOMPILED_CONSERVATION_PATH)
         with tarfile.open(PRECOMPILED_CONSERVATION_PATH, "r:gz") as tar:
             tar.extractall(path=".")
     else:
@@ -114,7 +120,10 @@ def main(config):
     print("08/11 Parsing shape reactivity values for each miRNA...")
     if literal_eval(settings["use_precompiled_shape"]):
         print("Using precompiled data...")
-        with tarfile.open(PRECOMPILED_CONSERVATION_PATH, "r:gz") as tar:
+
+        if not os.path.exists(PRECOMPILED_SHAPE_PATH):
+            urllib.request.urlretrieve("https://drive.proton.me/urls/TAM9T35J1G#lwl2NyaUGdZy", PRECOMPILED_SHAPE_PATH) 
+        with tarfile.open(PRECOMPILED_SHAPE_PATH, "r:gz") as tar:
             tar.extractall(path=".")
     else:
         print("Using fresh data...")
@@ -128,13 +137,13 @@ def main(config):
     shape_scorer.score_batch()
     print("09/11 Complete.\n")
 
-    print("10/11 Imputing any missing values for each miRNA...")
-    run_subprocess(["Rscript", "src/impute_missing_values.r", CONFIG_PATH, cores], "An error occurred while imputing values.")
+    print("10/11 Preparing features...")
+    run_subprocess(["Rscript", "src/prepare_features.r", CONFIG_PATH, cores], "An error occurred while preparing features.")
     print("10/11 Complete.\n")
 
     print("11/11 Making predictions using machine learning model...")
     machine_learning = MachineLearning(settings, directories, cores)
-    machine_learning.bind_model("rf.sav", "scaler.sav")
+    machine_learning.bind_model("ranker.sav")
     machine_learning.predict()
     print("11/11 Complete.\n")
 
@@ -151,4 +160,4 @@ if __name__ == "__main__":
     main(load_config())
 
     print("All done!")
-    print("See output/11-predictions for the final predictions.\n")
+    print("See output/10-predictions for the final predictions.\n")

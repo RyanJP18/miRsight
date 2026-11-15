@@ -405,44 +405,44 @@ extract_window_features <- function(current_transcript_id, supplementary_pairs, 
 }
 
 extract_au_content_features <- function(current_transcript_id, window_lr, window_rl) {
-    au_window_rl <- substr(window_rl, 9, nchar(window_rl)) # counts from 1, so its a 9 rather than 8
-    au_window_lr <- substr(window_lr, 1, nchar(window_lr) - 8)
-    au_window_sup <- substr(window_rl, 11, 18)
+    FLANK <- 30
 
-    au_content_3 <- lengths(regmatches(au_window_lr, gregexpr("(A|U)", au_window_lr)))
-    au_content_sup <- lengths(regmatches(au_window_sup, gregexpr("(A|U)", au_window_sup)))
+    # both windows read 5'->3'
+    # window_lr = [5' flank][site]
+    # window_rl = [site][3' flank]
+    flank_5 <- substr(window_lr, 1, nchar(window_lr) - 8)
+    flank_3 <- substr(window_rl, 9, nchar(window_rl))
 
-    au_content_3 <- au_content_3 / nchar(au_window_lr)
+    # reorder the 5' flank so both flanks read outward from the site
+    flank_5 <- paste(rev(strsplit(flank_5, "")[[1]]), collapse = "")
 
-    if (au_window_sup == "") {
-        au_content_sup <- "NA"
-    } else {
-        au_content_sup <- au_content_sup / nchar(au_window_sup)
+    # supplementary faces miRNA nt 12-19, 5' of the seed match (miRNA 9-11 gap)
+    # substr clamps at 1, so near the transcript start this returns the partial window
+    n_lr <- nchar(window_lr)
+    au_window_sup <- substr(window_lr, n_lr - 18, n_lr - 11)
+
+    dist_scalars <- (1 / (3:32)) / sum(1 / (3:32))
+
+    # all features average over the bases available
+    au_fraction <- function(x) {
+        if (nchar(x) == 0) return(NA)
+        nchar(gsub("[^AU]", "", x)) / nchar(x)
     }
 
-    weights <- c(
-        1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 7, 1 / 8, 1 / 9, 1 / 10, 1 / 11, 1 / 12, 1 / 13, 1 / 14, 1 / 15, 1 / 16, 1 / 17, 1 / 18,
-        1 / 19, 1 / 20, 1 / 21, 1 / 22, 1 / 23, 1 / 24, 1 / 25, 1 / 26, 1 / 27, 1 / 28, 1 / 29, 1 / 30, 1 / 31, 1 / 32
-    )
-    dist_scalars <- weights / sum(weights)
-
-    au_content_5_weighted <- 0
-    au_5_match_idx <- gregexpr("(A|U)", au_window_rl)[[1]]
-    for (idx in au_5_match_idx) {
-        if (idx == -1) {
-            # handling for very short strings (only one base in the rl window)
-            if (au_window_rl == "A" || au_window_rl == "U") {
-                au_content_5_weighted <- 1 / 3
-            } else {
-                au_content_5_weighted <- 0
-            }
-            break
-        }
-
-        au_content_5_weighted <- au_content_5_weighted + dist_scalars[idx]
+    # expects nearest-to-site first, renormalised over the positions present
+    au_weighted <- function(x) {
+        x <- substr(x, 1, FLANK)
+        n <- nchar(x)
+        if (n == 0) return(NA)
+        idx <- gregexpr("[AU]", x)[[1]]
+        if (idx[1] == -1) return(0)
+        sum(dist_scalars[idx]) / sum(dist_scalars[1:n])
     }
 
-    return(c(current_transcript_id, au_content_3, au_content_sup, au_content_5_weighted))
+    return(c(current_transcript_id,
+             au_fraction(substr(flank_5, 1, FLANK)), au_weighted(flank_5),
+             au_fraction(au_window_sup),
+             au_fraction(substr(flank_3, 1, FLANK)), au_weighted(flank_3)))
 }
 
 process_mirna <- function(i) {
@@ -472,24 +472,32 @@ process_mirna <- function(i) {
         rnacofolds <- load_rnacofolds(mirna_id, expanded_binding_sites)
 
         # prepare dataframes to group features by their category
-        seed_features <- create_new_frame(c("ensembl_transcript_id_version", "seed_binding_count", "seed_binding_type", "perfect_pair_1"), NULL, nrow(expanded_binding_sites))
-        single_base_features <- create_new_frame(c(
-            "ensembl_transcript_id_version", "gu_1", "gu_8", "perfect_pair_9",
-            "gu_9", "perfect_pair_10", "gu_10", "mirna_1", "mirna_8", "mrna_8"
-        ), NULL, nrow(expanded_binding_sites))
-        au_content_features <- create_new_frame(c("ensembl_transcript_id_version", "au_content_3", "au_content_sup", "au_content_5_weighted"), NULL, nrow(expanded_binding_sites))
+        seed_features <- create_new_frame(
+            c("ensembl_transcript_id_version", "seed_binding_count", "seed_binding_type", "perfect_pair_1"), 
+            NULL, nrow(expanded_binding_sites))
+
+        single_base_features <- create_new_frame(
+            c("ensembl_transcript_id_version", "gu_1", "gu_8", "perfect_pair_9", "gu_9", "perfect_pair_10", "gu_10", "mirna_1", "mirna_8", "mrna_8"),
+            NULL, nrow(expanded_binding_sites))
+
+        au_content_features <- create_new_frame(
+            c("ensembl_transcript_id_version", "au_content_5", "au_content_5_weighted", "au_content_sup", "au_content_3", "au_content_3_weighted"),
+            NULL, nrow(expanded_binding_sites))
 
         # for the window features, we want to record three separate varieties: bases 12-17, 09-20 and full supplementary portion so make three dataframes
-        window_frame_columns <- c(
-            "ensembl_transcript_id_version", "perfect_pair_count", "longest_any_sequence", "longest_any_sequence_start",
-            "any_pair_avg_dist", "gu_count", "mrna_binding_spread"
-        )
-        window_features_12_17 <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
-        window_features_09_20 <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
+        window_frame_columns <- c("ensembl_transcript_id_version", "perfect_pair_count", "longest_any_sequence", "longest_any_sequence_start", "any_pair_avg_dist", "gu_count", "mrna_binding_spread")
+        
         window_features_full <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
-        colnames(window_features_12_17)[-1] <- paste(colnames(window_features_12_17)[-1], "12_17", sep = "_")
-        colnames(window_features_09_20)[-1] <- paste(colnames(window_features_09_20)[-1], "09_20", sep = "_")
-        colnames(window_features_full)[-1] <- paste(colnames(window_features_full)[-1], "full", sep = "_")
+        colnames(window_features_full) <- paste(colnames(window_features_full), "full", sep = "_")
+        colnames(window_features_full)[1] <- "ensembl_transcript_id_version"
+        
+        window_features_5 <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
+        colnames(window_features_5) <- paste(colnames(window_features_5), "5", sep = "_")
+        colnames(window_features_5)[1] <- "ensembl_transcript_id_version"
+       
+        window_features_12_19 <- create_new_frame(window_frame_columns, NULL, nrow(expanded_binding_sites))
+        colnames(window_features_12_19) <- paste(colnames(window_features_12_19), "12_19", sep = "_")
+        colnames(window_features_12_19)[1] <- "ensembl_transcript_id_version"
 
         # build up features row by row
         for (j in seq_len(nrow(expanded_binding_sites))) {
@@ -497,16 +505,18 @@ process_mirna <- function(i) {
 
             seq <- strsplit(as.character(rnacofolds$rnacofold_full_sequence[j]), "")[[1]]
             struct <- strsplit(as.character(rnacofolds$rnacofold_full_struct[j]), "")[[1]]
-
+            
             seed_features[j, ] <- extract_seed_features(current_transcript_id, seq, struct)
             single_base_features[j, ] <- extract_single_base_features(current_transcript_id, seq)
-            au_content_features[j, ] <- extract_au_content_features(current_transcript_id, rnafolds_lr[j, 1], rnafolds_rl[j, 1])
 
             sequence_pairs <- determine_pairs(struct)
-            window_features_12_17[j, ] <- extract_window_features(current_transcript_id, sequence_pairs, seq, 12, 17)
-            window_features_09_20[j, ] <- extract_window_features(current_transcript_id, sequence_pairs, seq, 09, 20)
-            window_features_full[j, ] <- extract_window_features(current_transcript_id, sequence_pairs, seq, 01, 99)
-        }
+            
+            au_content_features[j, ] <- extract_au_content_features(current_transcript_id, rnafolds_lr[j, 1], rnafolds_rl[j, 1])
+            
+            window_features_full[j, ] <- extract_generic_window_features(current_transcript_id, sequence_pairs, seq, 01, 99)
+            window_features_12_19[j, ] <- extract_generic_window_features(current_transcript_id, sequence_pairs, seq, 12, 19)
+            window_features_5[j, ] <- extract_generic_window_features(current_transcript_id, sequence_pairs, seq, 09, 38)
+       }
 
         folding_windows <- read.table(file.path(directories$windows, window_filename), sep = "\t", header = TRUE)
         rnaplfolds <- load_rnaplfolds(mirna_id, folding_windows, seed_features)
@@ -515,9 +525,9 @@ process_mirna <- function(i) {
         combined_features <- cbind(
             single_base_features,
             seed_features[, -which(names(seed_features) == "ensembl_transcript_id_version")],
-            window_features_12_17[, -which(names(window_features_12_17) == "ensembl_transcript_id_version")],
-            window_features_09_20[, -which(names(window_features_09_20) == "ensembl_transcript_id_version")],
-            window_features_full[, -which(names(window_features_09_20) == "ensembl_transcript_id_version")],
+            window_features_full[, -which(names(window_features_full) == "ensembl_transcript_id_version")],
+            window_features_12_19[, -which(names(window_features_12_19) == "ensembl_transcript_id_version")],
+            window_features_5[, -which(names(window_features_5) == "ensembl_transcript_id_version")],
             expanded_binding_sites[, -which(names(expanded_binding_sites) == "ensembl_transcript_id_version")],
             au_content_features[, -which(names(au_content_features) == "ensembl_transcript_id_version")],
             rnafolds[, c("rnafold_mfe", "rnafold_direction")],
