@@ -17,24 +17,14 @@ class MachineLearning:
     annotations = None
     mirna_ids = None
 
-    def bind_model(self, model_filename, scaler_filename):
+    def bind_model(self, model_filename):
         """ Prepare a trained model and associated scalers for making predictions """
 
         self.model = PredictionModel(self.settings, self.directories, self.cores)
-        self.model.load(model_filename, scaler_filename)
+        self.model.load(model_filename)
 
     def predict(self):
         """ Make a set of predictions based on the supplied model and data for each miRNA """
-
-        # wipe any previous predictions
-        output_path_all_pred = Path.joinpath(Path(self.directories["machine_learning"], "all-predictions.tsv"))
-        output_path_filtered_pred = Path.joinpath(Path(self.directories["machine_learning"], "filtered-predictions.tsv"))
-
-        if os.path.exists(output_path_all_pred):
-            os.remove(output_path_all_pred)
-
-        if os.path.exists(output_path_filtered_pred):
-            os.remove(output_path_filtered_pred)
 
         annotations = pd.read_csv(Path(self.directories["annotations"], "annotations.tsv"), sep="\t")
 
@@ -42,7 +32,7 @@ class MachineLearning:
         ensembl_gene_id_filter = self.settings["ensembl_gene_id_filter"].split(",")
         external_gene_id_filter = self.settings["external_gene_id_filter"].split(",")
 
-        mirna_files = os.listdir(self.directories["features_full_imputed"])
+        mirna_files = os.listdir(self.directories["features_prepared"])
         mirna_ids = [f.split(".")[0] for f in mirna_files]
 
         # iterate each mirna and make predictions

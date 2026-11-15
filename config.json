@@ -8,7 +8,7 @@
         "ensembl_gene_id_filter": "",
         "external_gene_id_filter": "",
 
-        "ensembl_release": "101",
+        "ensembl_release": "116",
         "use_precompiled_conservation": "True",
         "use_precompiled_shape": "True",
 
@@ -35,7 +35,7 @@
         "features_conservation": "output/07-features-conservation",
         "parsed_shape": "output/08-parsed-shape",
         "features_cons_shape": "output/09-features-cons-shape",
-        "features_full_imputed": "output/10-features-full-imputed",
+        "features_prepared": "output/10-features-prepared",
         "machine_learning": "output/11-target-predictions",
 
         

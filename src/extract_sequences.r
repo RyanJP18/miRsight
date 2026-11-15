@@ -30,42 +30,9 @@ extract_utr_sequences <- function(annotations, ensdb, genome, chromosome_filter)
 }
 
 extract_sequence_coordinates <- function(annotations, ensdb, genome, chromosome_filter) {
-    if (as.logical(settings$use_caching) && "X3_utr_start" %in% colnames(annotations)) {
-        cat(paste("Loaded sequence coordinates from cache.\n"))
-    } else {
-        cat(paste("Extracting sequence coordinates with EnsemblDB..."))
-
-        utr_infos <- ensembldb::transcripts(ensdb, filter = ~ tx_biotype == "protein_coding" & seq_name == chromosome_filter)
-        utr_infos_table <- data.frame(utr_infos)
-        utr_infos_table <- utr_infos_table[order(utr_infos_table$tx_name), ]
-
-        utr_infos_table$X3_utr_start <- 0
-        utr_infos_table$X3_utr_end <- 0
-        utr_infos_table$X3_utr_length <- 0
-        utr_infos_table$cds_length <- 0
-
-        # determine utr start and ends according to cds start and ends (process is reversed depending on + or - strand)
-        for (i in seq_len(nrow(utr_infos_table))) {
-            if (utr_infos_table$strand[i] == "+") {
-                utr_infos_table$X3_utr_start[i] <- utr_infos_table$tx_cds_seq_end[i] + 1
-                utr_infos_table$X3_utr_end[i] <- utr_infos_table$end[i]
-            } else {
-                utr_infos_table$X3_utr_start[i] <- utr_infos_table$start[i]
-                utr_infos_table$X3_utr_end[i] <- utr_infos_table$tx_cds_seq_start[i] - 1
-            }
-
-            utr_infos_table$X3_utr_length[i] <- utr_infos_table$X3_utr_end[i] - utr_infos_table$X3_utr_start[i] + 1
-            utr_infos_table$cds_length[i] <- utr_infos_table$tx_cds_seq_end[i] - utr_infos_table$tx_cds_seq_start[i] + 1
-        }
-
-        annotations <- merge(annotations, utr_infos_table[, c("tx_id", "X3_utr_start", "X3_utr_end", "X3_utr_length", "cds_length")],
-            by.x = "ensembl_transcript_id", by.y = "tx_id", all.x = TRUE
-        )
-        annotations$ensembl_transcript_id <- NULL
-        write.table(annotations, file.path(directories$annotations, "annotations.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
-
-        cat(" Done.\n")
-    }
+    filt <- ~ tx_biotype == "protein_coding" & seq_name == chromosome_filter
+    utrs <- ensembldb::threeUTRsByTranscript(ensdb, filter = filt)
+    saveRDS(utrs, file.path(directories$annotations, paste0("utr-coords.rds")))
 }
 
 extract_cds_sequences <- function(annotations, ensdb, genome, chromosome_filter) {
