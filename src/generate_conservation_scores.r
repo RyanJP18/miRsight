@@ -157,7 +157,7 @@ generate_conservation_scores <- function(track, filename, transcripts) {
 # --- ENTRY POINT ---
 
 annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE)
-utrs <- readRDS(file.path(directories$annotations, "utr-coords.rds"))
+utrs <- readRDS(file.path(directories$annotations, "utr_coords.rds"))
 generate_conservation_scores(phastCons30way.UCSC.hg38, "phast30.tsv", annotations)
 generate_conservation_scores(phastCons100way.UCSC.hg38, "phast100.tsv", annotations)
 generate_conservation_scores(phyloP100way.UCSC.hg38, "phylo100.tsv", annotations)

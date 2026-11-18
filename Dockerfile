@@ -11,6 +11,7 @@ RUN apt-get update -y && apt-get install -y \
     curl \
     libopenblas-dev liblapack-dev \
     dirmngr gnupg \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +27,7 @@ RUN apt-get update -y && apt-get install -y \
 RUN python3.8 -m venv miRsight-venv
 ENV PATH /miRsight-venv/bin:$PATH
 RUN . activate
-RUN pip3.8 install scikit-learn==1.1.1 pandas==1.4.2
+RUN pip3.8 install scikit-learn==1.1.1 pandas==1.4.2 lightgbm==3.3.5
 
 # Install R 4.2.0 specifically
 RUN curl -fsSL https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | gpg --dearmor -o /usr/share/keyrings/cran.gpg \

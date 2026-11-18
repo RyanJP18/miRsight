@@ -166,4 +166,10 @@ if (settings$mirna_id_filter != "") {
 mirna_ids <- gsub("*.tsv", "", binding_site_files)
 n <- length(binding_site_files)
 
-result <- mclapply(1:n, process_mirna, mc.cores = cores)
+results <- mclapply(1:n, process_mirna, mc.cores = cores)
+
+failed <- vapply(results, inherits, logical(1), "try-error")
+if (any(failed)) {
+    for (e in unique(results[failed])) message(e)
+    stop(sum(failed), " job(s) failed.")
+}

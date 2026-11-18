@@ -62,7 +62,15 @@ class PredictionModel:
         cols = ["shape_seed", "shape_sup", "shape_3", "shape_5"]
         dataset[cols] = dataset[cols].replace(-1, np.nan)
 
+        print(dataset.columns.tolist())
+
         return dataset
+
+    def ensemble_predict(self, features):
+        """ Rank normalise and produce the mean percentile rank across the ensemble """
+
+        r = np.column_stack([pd.Series(m.predict(features)).rank(pct=True).values for m in self.models])
+        return r.mean(axis=1)
 
     def predict(self, mirna_id):
         """ Produce predictions for the given miRNA """
@@ -70,6 +78,8 @@ class PredictionModel:
         raw_test = pd.read_csv(Path.joinpath(Path(self.directories["features_prepared"], mirna_id + ".tsv")), header="infer", na_values="?", sep="\t", index_col=0)
         test = self.prep_features(raw_test)
         test_features = test
+
+        confidence = self.ensemble_predict(test_features)
 
         # process into a results table
         results = pd.DataFrame(test.index)

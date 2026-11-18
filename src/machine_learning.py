@@ -26,6 +26,16 @@ class MachineLearning:
     def predict(self):
         """ Make a set of predictions based on the supplied model and data for each miRNA """
 
+        # wipe any previous predictions
+        output_path_all_pred = Path.joinpath(Path(self.directories["machine_learning"], "all-predictions.tsv"))
+        output_path_filtered_pred = Path.joinpath(Path(self.directories["machine_learning"], "filtered-predictions.tsv"))
+
+        if os.path.exists(output_path_all_pred):
+            os.remove(output_path_all_pred)
+
+        if os.path.exists(output_path_filtered_pred):
+            os.remove(output_path_filtered_pred)
+
         annotations = pd.read_csv(Path(self.directories["annotations"], "annotations.tsv"), sep="\t")
 
         ensembl_transcript_id_filter = self.settings["ensembl_transcript_id_filter"].split(",")

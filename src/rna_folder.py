@@ -28,11 +28,11 @@ class RNAFolder:
             output_path = Path(output_dir, input_path.stem + ".csv")
 
             if self.use_caching and output_path.is_file():
-                print(f"Folding part {self.current_batch}/{self.batch_count} - {index}/{window_count} - loaded from cache.")
+                print(f"Folding part {self.current_batch}/{self.batch_count} - {index + 1}/{window_count} - loaded from cache.")
             else:
                 exit_code = subprocess.call(f"RNAfold --noPS --jobs={self.cores} {str(input_path)} >> {str(output_path)}", shell=True)
                 if exit_code == 0:
-                    print(f"Folding part {self.current_batch}/{self.batch_count} - {index}/{window_count} - done.")
+                    print(f"Folding part {self.current_batch}/{self.batch_count} - {index + 1}/{window_count} - done.")
                 else:
                     print("An error occurred running RNAfold for " + input_path.stem)
 

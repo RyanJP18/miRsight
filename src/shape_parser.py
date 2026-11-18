@@ -10,10 +10,25 @@ from ast import literal_eval
 from collections import namedtuple
 import pandas as pd
 import numpy as np
+import warnings
 
 
 class ShapeParser:
     """ A parser which extracts shape reactivity scores for miRNA target sites """
+
+    def prepare_shape_index(self, features, shape_source): 
+        """ Build an index once per file to avoid having to do double lookups """
+
+        self._ts_index = features.groupby(features["ensembl_transcript_id_version"].str.split(".").str[0]).indices
+
+        self._col_utr_len = features.columns.get_loc("X3_utr_length")
+        self._col_bind_pos = features.columns.get_loc("binding_site_pos")
+
+        self._col_seed = features.columns.get_loc(shape_source + "_seed")
+        self._col_sup = features.columns.get_loc(shape_source + "_sup")
+        self._col_3 = features.columns.get_loc(shape_source + "_3")
+        self._col_5 = features.columns.get_loc(shape_source + "_5")
+    
 
     def parse_shape(self, transcript_id, features, shape, shape_source):
         rows = self._ts_index.get(transcript_id)

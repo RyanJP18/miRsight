@@ -248,7 +248,7 @@ determine_pairs <- function(struct) {
     return(list(halfway, mirna_binds, mrna_binds))
 }
 
-extract_window_features <- function(current_transcript_id, supplementary_pairs, seq, start, end) {
+extract_generic_window_features <- function(current_transcript_id, supplementary_pairs, seq, start, end) {
     halfway <- supplementary_pairs[[1]]
     mirna_binds <- supplementary_pairs[[2]]
     mrna_binds <- supplementary_pairs[[3]]
@@ -639,4 +639,10 @@ if (settings$mirna_id_filter != "") {
 mirna_ids <- gsub("*.tsv", "", window_files)
 n <- length(window_files)
 
-result <- mclapply(1:n, process_mirna, mc.cores = cores)
+results <- mclapply(1:n, process_mirna, mc.cores = cores)
+
+failed <- vapply(results, inherits, logical(1), "try-error")
+if (any(failed)) {
+    for (e in unique(results[failed])) message(e)
+    stop(sum(failed), " job(s) failed.")
+}

@@ -159,4 +159,10 @@ target_sites <- create_new_frame(c(
     "target_7mer_m8", "site_8mer", "target_8mer"
 ), NULL, nrow(mirna_sequences))
 
-result <- mclapply(1:n, process_mirna, mc.cores = cores)
+results <- mclapply(1:n, process_mirna, mc.cores = cores)
+
+failed <- vapply(results, inherits, logical(1), "try-error")
+if (any(failed)) {
+    for (e in unique(results[failed])) message(e)
+    stop(sum(failed), " job(s) failed.")
+}

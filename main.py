@@ -78,9 +78,9 @@ def main(config):
         print("Using precompiled data...")
 
         if not os.path.exists(PRECOMPILED_CONSERVATION_PATH):
-            urllib.request.urlretrieve("https://github.com/RyanJP18/miRsight/releases/download/v2/precompiled_conservation_data.tar.gz", PRECOMPILED_CONSERVATION_PATH)
+            urllib.request.urlretrieve("https://github.com/RyanJP18/miRsight/releases/download/v2.0.0-rc1/precompiled_conservation_data.tar.gz", PRECOMPILED_CONSERVATION_PATH)
         with tarfile.open(PRECOMPILED_CONSERVATION_PATH, "r:gz") as tar:
-            tar.extractall(path=".")
+            tar.extractall(path="./output")
     else:
         print("Using fresh data...")
 
@@ -122,9 +122,9 @@ def main(config):
         print("Using precompiled data...")
 
         if not os.path.exists(PRECOMPILED_SHAPE_PATH):
-            urllib.request.urlretrieve("https://github.com/RyanJP18/miRsight/releases/download/v2/precompiled_shape_data.tar.gz", PRECOMPILED_SHAPE_PATH) 
+            urllib.request.urlretrieve("https://github.com/RyanJP18/miRsight/releases/download/v2.0.0-rc1/precompiled_shape_data.tar.gz", PRECOMPILED_SHAPE_PATH) 
         with tarfile.open(PRECOMPILED_SHAPE_PATH, "r:gz") as tar:
-            tar.extractall(path=".")
+            tar.extractall(path="./output")
     else:
         print("Using fresh data...")
 
@@ -151,8 +151,8 @@ def main(config):
 # Entry point
 CONFIG_PATH = "config.json"
 ENSEMBL_MANE_LOOKUP_PATH = "ensembl_mane_version_lookup.json"
-PRECOMPILED_CONSERVATION_PATH = "precompiled_conservation_data.tar.gz"
-PRECOMPILED_SHAPE_PATH = "precompiled_shape_data.tar.gz"
+PRECOMPILED_CONSERVATION_PATH = "output/precompiled_conservation_data.tar.gz"
+PRECOMPILED_SHAPE_PATH = "output/precompiled_shape_data.tar.gz"
 
 if __name__ == "__main__":
     print("\nStarting miRsight...\n")

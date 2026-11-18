@@ -30,9 +30,40 @@ extract_utr_sequences <- function(annotations, ensdb, genome, chromosome_filter)
 }
 
 extract_sequence_coordinates <- function(annotations, ensdb, genome, chromosome_filter) {
-    filt <- ~ tx_biotype == "protein_coding" & seq_name == chromosome_filter
-    utrs <- ensembldb::threeUTRsByTranscript(ensdb, filter = filt)
-    saveRDS(utrs, file.path(directories$annotations, paste0("utr-coords.rds")))
+    if (as.logical(settings$use_caching) && file.exists(file.path(directories$annotations, "utr_coords.rds"))) {
+        cat(paste("Loaded utr coordinates from cache.\n"))
+    } else {
+        cat(paste("Extracting utr coordinates with EnsemblDB..."))
+    
+        filt <- ~ tx_biotype == "protein_coding" & seq_name == chromosome_filter
+
+        utr_infos <- ensembldb::transcripts(ensdb, filter = filt)
+        utr_infos_table <- data.frame(utr_infos)
+        utr_infos_table <- utr_infos_table[order(utr_infos_table$tx_name), ]
+
+        # outer genomic bounds of the 3'UTR
+        plus <- utr_infos_table$strand == "+"
+        utr_infos_table$X3_utr_start <- ifelse(plus, utr_infos_table$tx_cds_seq_end + 1, utr_infos_table$start)
+        utr_infos_table$X3_utr_end <- ifelse(plus, utr_infos_table$end, utr_infos_table$tx_cds_seq_start - 1)
+
+        # spliced lengths - exons only
+        utrs <- ensembldb::threeUTRsByTranscript(ensdb, filter = filt)
+        saveRDS(utrs, file.path(directories$annotations, paste0("utr_coords.rds")))
+        cds  <- ensembldb::cdsBy(ensdb, by = "tx", filter = filt)
+
+        tx <- utr_infos_table$tx_id
+        utr_infos_table$X3_utr_length <- unname(sum(width(utrs))[tx])
+        utr_infos_table$cds_length <- unname(sum(width(cds))[tx])
+
+        utr_infos_table$X3_utr_length[is.na(utr_infos_table$X3_utr_length)] <- 0
+
+        annotations <- merge(annotations, utr_infos_table[, c("tx_id", "X3_utr_start", "X3_utr_end", "X3_utr_length", "cds_length")],
+            by.x = "ensembl_transcript_id", by.y = "tx_id", all.x = TRUE)
+        annotations$ensembl_transcript_id <- NULL
+        write.table(annotations, file.path(directories$annotations, "annotations.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
+
+        cat(" Done.\n")
+    }
 }
 
 extract_cds_sequences <- function(annotations, ensdb, genome, chromosome_filter) {
@@ -64,7 +95,7 @@ extract_cds_sequences <- function(annotations, ensdb, genome, chromosome_filter)
 
 annotations <- read.table(file.path(directories$annotations, "annotations.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 
-if (as.logical(settings$use_caching) && "X3_utr_start" %in% colnames(annotations) &&
+if (as.logical(settings$use_caching) && file.exists(file.path(directories$annotations, "utr_coords.rds")) &&
         file.exists(file.path(directories$annotations, "utr_sequences.tsv")) && file.exists(file.path(directories$annotations, "cds_sequences.tsv"))) {
     cat(paste("Loaded sequences from cache.\n"))
 } else {

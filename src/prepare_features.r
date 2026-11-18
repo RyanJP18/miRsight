@@ -5,6 +5,8 @@ settings <- config$settings
 directories <- config$directories
 cores <- as.numeric(args[2])
 
+suppressMessages(library(parallel))
+
 
 # --- FUNCTIONS ---
 
@@ -43,4 +45,10 @@ if (settings$mirna_id_filter != "") {
 }
 n <- length(feature_files)
 
-result <- mclapply(1:n, process_mirna, mc.cores = cores)
+results <- mclapply(1:n, process_mirna, mc.cores = cores)
+
+failed <- vapply(results, inherits, logical(1), "try-error")
+if (any(failed)) {
+    for (e in unique(results[failed])) message(e)
+    stop(sum(failed), " job(s) failed.")
+}

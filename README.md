@@ -26,10 +26,10 @@ If you use this tool, please cite: pending.
    - Windows/Mac: simply run the Docker app
    - Linux: run `systemctl start docker` in a terminal
 2. Open a terminal and `cd path/to/miRsight`
-3. Run `docker build -t mirsight .` to build the image
+3. Run `docker build -t mirsight . && docker image prune -f` to build the image
 4. 
-   - Windows: run `docker run -v %cd%/output:/app/output -it mirsight` to begin
-   - Linux/Mac: run  `docker run -v $(pwd)/output:/app/output -it mirsight` to begin
+   - Windows: run `docker run --rm -v %cd%/output:/app/output -it mirsight` to begin
+   - Linux/Mac: run  `docker run --rm -v $(pwd)/output:/app/output -it mirsight` to begin
 
 ##### Option 2: Docker via GUI
 1. Open Docker Desktop and click the `Images` section on the left panel

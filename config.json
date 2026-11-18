@@ -21,9 +21,9 @@
 
     
     "directories": {
-        "shape_data": "shape",
         "model_data": "model",
 
+        "shape_data": "output/shape",
 
         "preload_data": "output/00-preload-data",
 	    "annotations": "output/01-annotations",

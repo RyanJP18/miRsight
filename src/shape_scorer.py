@@ -7,14 +7,13 @@ import os
 from pathlib import Path
 from multiprocessing import Pool
 from ast import literal_eval
+import pandas as pd
+import numpy as np
 
 
 class ShapeScorer:
     """ A parser/scorer which works with intermediary output from shape_parser to compute mean seed and supplementary shape scores across shape sources """
 
-    shape_seed_cols = []
-    shape_sup_cols = []
-    
     def rank_normalise(self, df, cols):
         """ Convert each cell line's real values to percentiles """
         for c in cols:
@@ -85,6 +84,11 @@ class ShapeScorer:
 
     def score_batch(self):
         """ Produce mean reactivity scores for a batch of feature files """
+
+        self.shape_seed_cols = []
+        self.shape_sup_cols = []
+        self.shape_3_cols = []
+        self.shape_5_cols = []
 
         # each shape file located in the main shape directory is considered a new dataset
         for shape_filename in os.listdir(self.directories["shape_data"]):
